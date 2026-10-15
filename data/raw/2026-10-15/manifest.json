@@ -1,0 +1,50 @@
+{
+  "download_date": "2026-10-15",
+  "source": "https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/",
+  "files": {
+    "F-F_Research_Data_5_Factors_2x3_CSV.zip": {
+      "description": "US, 5 facteurs, mensuel",
+      "sha256": "36756c5c2559648519ac4b22913d860c6afd865cfebce920e3e8927f8e2d10b7"
+    },
+    "F-F_Research_Data_5_Factors_2x3_daily_CSV.zip": {
+      "description": "US, 5 facteurs, quotidien",
+      "sha256": "7881223b51929ee0d6d23b8a28524aaec478a2c3d4eeca47224955cc845c5186"
+    },
+    "F-F_Momentum_Factor_CSV.zip": {
+      "description": "US, momentum, mensuel",
+      "sha256": "c06d1c2e9a5e4f6985879722f23c6bb585f46b34eaf3fcb681d4de887e353f3e"
+    },
+    "F-F_Momentum_Factor_daily_CSV.zip": {
+      "description": "US, momentum, quotidien",
+      "sha256": "ecf82b116e6ec56d2b79a2f27bd1d1598c217b5c6c25caa55b945bdd8a2c0b78"
+    },
+    "Developed_5_Factors_CSV.zip": {
+      "description": "Developed, 5 facteurs, mensuel",
+      "sha256": "11c299a69b299ada4bd2e68d4c6393347a70e3bf474c967fe96bff469baa5e2e"
+    },
+    "Developed_Mom_Factor_CSV.zip": {
+      "description": "Developed, momentum, mensuel",
+      "sha256": "f2217d81ca76d749d1ee84dd8de80ec70db341c583b7c94a1960e3b807fa7931"
+    },
+    "Europe_5_Factors_CSV.zip": {
+      "description": "Europe, 5 facteurs, mensuel",
+      "sha256": "cc0aa7c9f1a60eec96f5cb7749ee9abed61063b1318fbc913a2514831a9746f2"
+    },
+    "Europe_Mom_Factor_CSV.zip": {
+      "description": "Europe, momentum, mensuel",
+      "sha256": "38cbf8df4023c25852a6e7a8df0614cfefd0676aae353cb01d08eed0a45a04b3"
+    },
+    "Japan_5_Factors_CSV.zip": {
+      "description": "Japon, 5 facteurs, mensuel",
+      "sha256": "8eeae8609febc2dfb8bac1ffcd8d0a8ac4f6e620c747b6586b2719697908dd64"
+    },
+    "Japan_Mom_Factor_CSV.zip": {
+      "description": "Japon, momentum, mensuel",
+      "sha256": "5bd944de3db4e38c26d9caf5f393b5f250513fd02476426e42b36db4efa88045"
+    },
+    "6_Portfolios_2x3_CSV.zip": {
+      "description": "US, 6 portefeuilles taille x B/M (jambe longue)",
+      "sha256": "82b66ccd6a4dff103eba51b60e1f2310eaa94bbebbb843550173b972c64cdbff"
+    }
+  }
+}
