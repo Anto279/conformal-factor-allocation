@@ -1,0 +1,76 @@
+{
+  "raw_dir": "data/raw/2026-10-15",
+  "tables": {
+    "factors_monthly": {
+      "start": "1963-07-31",
+      "end": "2026-08-31",
+      "rows": 758,
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ]
+    },
+    "factors_daily": {
+      "start": "1963-07-01",
+      "end": "2026-08-31",
+      "rows": 15897,
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ]
+    },
+    "factors_developed_monthly": {
+      "start": "1990-11-30",
+      "end": "2026-08-31",
+      "rows": 430,
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ]
+    },
+    "factors_europe_monthly": {
+      "start": "1990-11-30",
+      "end": "2026-08-31",
+      "rows": 430,
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ]
+    },
+    "factors_japan_monthly": {
+      "start": "1990-11-30",
+      "end": "2026-08-31",
+      "rows": 430,
+      "columns": [
+        "MKT",
+        "SMB",
+        "HML",
+        "RMW",
+        "CMA",
+        "MOM",
+        "RF"
+      ]
+    }
+  },
+  "download_date": "2026-10-15"
+}
