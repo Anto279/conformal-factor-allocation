@@ -25,7 +25,7 @@ import pandas as pd
 from src.conformal import conformal_intervals, decision_scores
 from src.data.build_factors import STYLES, load_daily, load_monthly
 from src.features import FEATURES, build_features
-from src.models import walk_forward
+from src.models import RIDGE_LAMBDA, _fit_ridge, walk_forward
 from src.plotting import COLORS, FACTOR_LABELS, save, style
 from src.split import exploration
 
@@ -34,6 +34,9 @@ FIRST_FORECAST = pd.Timestamp("1970-12-31")
 GO_THRESHOLD = 0.10
 ALPHAS = {"80 %": 0.20, "50 %": 0.50}
 ACI_GAMMA = 0.005
+# Méthodes de calibration comparées : (nom, gamma de l'ACI, fenêtre de scores en mois)
+METHODS = [("CP historique complet", 0.0, None), ("CP 60 mois", 0.0, 60), ("ACI 60 mois", ACI_GAMMA, 60)]
+MAIN = ("ridge", "80 %", "CP 60 mois")
 
 
 def summarize(iv: pd.DataFrame, dec: pd.DataFrame) -> dict:
@@ -64,16 +67,16 @@ def main() -> None:
     rows, intervals = [], {}
     for model, zhat in forecasts.items():
         for label, alpha in ALPHAS.items():
-            for method, gamma in (("CP", 0.0), ("ACI", ACI_GAMMA)):
-                iv = conformal_intervals(panel["z"], zhat, panel["sigma"], alpha, gamma)
+            for method, gamma, window in METHODS:
+                iv = conformal_intervals(panel["z"], zhat, panel["sigma"], alpha, gamma, window=window)
                 dec = decision_scores(iv)
                 intervals[(model, label, method)] = (iv, dec)
                 rows.append({"modele": model, "niveau": label, "methode": method, **summarize(iv, dec)})
     table = pd.DataFrame(rows)
     table.to_csv(RESULTS / "go_no_go.csv", index=False)
 
-    # Détail du cas principal : ridge, 80 %, CP normalisée simple
-    iv, dec = intervals[("ridge", "80 %", "CP")]
+    # Détail du cas principal : ridge, 80 %, CP normalisée sur 60 mois
+    iv, dec = intervals[MAIN]
     by_factor = pd.DataFrame({
         "couverture": iv["covered"].groupby(level="factor").mean(),
         "demi_largeur_moy": ((iv["upper"] - iv["lower"]) / 2).groupby(level="factor").mean(),
@@ -86,25 +89,38 @@ def main() -> None:
     regime = iv.groupby(level="factor")["sigma"].transform(
         lambda s: pd.qcut(s, 3, labels=["basse", "moyenne", "haute"]))
     cov_regime = {}
-    for key in [("ridge", "80 %", "CP"), ("ridge", "80 %", "ACI")]:
+    for key in [("ridge", "80 %", m[0]) for m in METHODS]:
         ivk = intervals[key][0]
         cov_regime[key[2]] = ivk["covered"].groupby(regime.reindex(ivk.index), observed=True).mean()
     cov_regime = pd.DataFrame(cov_regime)
     cov_regime.to_csv(RESULTS / "couverture_par_regime.csv")
 
-    # Risque 4 : le score n'est-il que l'inverse de la volatilité ?
-    corr_sigma = {
-        m: float(np.corrcoef(intervals[(m, "80 %", "CP")][1]["continuous"].abs(),
-                             intervals[(m, "80 %", "CP")][0]["sigma"])[0, 1])
-        for m in forecasts
-    }
+    # Risque 4 : le score suit-il simplement la volatilité ? Corrélation dans le
+    # temps, facteur par facteur, puis moyenne sur les facteurs.
+    corr_sigma = {}
+    for m in forecasts:
+        ivm, decm = intervals[(m, "80 %", "CP 60 mois")]
+        both = pd.DataFrame({"s": decm["continuous"], "sigma": ivm["sigma"]})
+        corr_sigma[m] = float(both.groupby(level="factor").apply(lambda g: g["s"].corr(g["sigma"])).mean())
 
-    main_case = table.query("modele == 'ridge' and niveau == '80 %' and methode == 'CP'").iloc[0]
+    # Qualité de la prévision elle-même (pas une performance de portefeuille)
+    zr, zm = forecasts["ridge"], forecasts["mean"]
+    z = panel["z"].reindex(zr.index)
+    ok = z.notna() & (zr.index.get_level_values("date") >= iv.index.get_level_values("date").min())
+    r2_oos = 1 - ((z - zr)[ok] ** 2).sum() / ((z - zm)[ok] ** 2).sum()
+    ic = zr[ok].corr(z[ok], method="spearman")
+    _, coefs, _, _ = _fit_ridge(panel.dropna(subset=FEATURES + ["z"]), FEATURES, RIDGE_LAMBDA)
+    forecast_quality = {"r2_oos_ridge_vs_moyenne": float(r2_oos), "ic_spearman": float(ic),
+                        "coefficients_standardises_fin_1989": dict(zip(FEATURES, map(float, coefs))),
+                        "ecart_type_z": float(panel["z"].std())}
+
+    main_case = table.query("modele == @MAIN[0] and niveau == @MAIN[1] and methode == @MAIN[2]").iloc[0]
     verdict = {
         "regle_binaire_frequence": float(main_case["binaire_declenche"]),
         "seuil": GO_THRESHOLD,
         "regle_binaire_retenue": bool(main_case["binaire_declenche"] >= GO_THRESHOLD),
         "correlation_score_sigma": corr_sigma,
+        "qualite_prevision": forecast_quality,
         "periode": [str(iv.index.get_level_values("date").min().date()),
                     str(iv.index.get_level_values("date").max().date())],
     }
@@ -121,14 +137,14 @@ def main() -> None:
 
 def figures(intervals: dict, panel: pd.DataFrame) -> None:
     style()
-    iv, dec = intervals[("ridge", "80 %", "CP")]
+    iv, dec = intervals[MAIN]
 
     # 1. La fourchette dans le temps, pour un facteur
     f = "MOM"
     d = iv.xs(f, level="factor")
     fig, ax = plt.subplots(figsize=(10, 4))
     ax.fill_between(d.index, d["lower"] * 100, d["upper"] * 100, color=COLORS["band"], alpha=0.6,
-                    label="fourchette à 80 % (CP normalisée)")
+                    label="fourchette à 80 % (CP normalisée, 60 mois)")
     ax.plot(d.index, d["muhat"] * 100, color=COLORS["main"], lw=1.2, label="prévision ridge")
     ax.scatter(d.index, d["target"] * 100, s=4, color=COLORS["grey"], label="rendement réalisé")
     ax.axhline(0, color="black", lw=0.6)
@@ -144,12 +160,13 @@ def figures(intervals: dict, panel: pd.DataFrame) -> None:
     ax.set_xlabel("score de confiance  centre / demi-largeur")
     ax.set_ylabel("nombre de couples (mois, facteur)")
     share = (dec["binary"] != 0).mean()
-    ax.set_title(f"Score continu (ridge, 80 %) ; la règle binaire ne se déclenche que {share:.1%} du temps")
+    pct = f"{share * 100:.1f}".replace(".", ",")
+    ax.set_title(f"Score continu (ridge, 80 %). La règle binaire se déclenche sur {pct} % des couples")
     save(fig, "gonogo_score_continu")
 
     # 3. Couverture glissante sur 36 mois, CP contre ACI
     fig, ax = plt.subplots(figsize=(10, 3.6))
-    for method, color in (("CP", COLORS["main"]), ("ACI", COLORS["alt"])):
+    for (method, _, _), color in zip(METHODS, (COLORS["grey"], COLORS["main"], COLORS["alt"])):
         c = intervals[("ridge", "80 %", method)][0]["covered"].groupby(level="date").mean()
         ax.plot(c.rolling(36).mean() * 100, color=color, label=method)
     ax.axhline(80, color="black", lw=0.8, ls="--", label="niveau visé")

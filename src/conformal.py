@@ -36,14 +36,18 @@ def conformal_quantile(scores: np.ndarray, alpha: float) -> float:
 
 
 def conformal_intervals(z: pd.Series, zhat: pd.Series, sigma: pd.Series, alpha: float,
-                        gamma: float = 0.0, min_scores: int = 300) -> pd.DataFrame:
+                        gamma: float = 0.0, min_scores: int = 300,
+                        window: int | None = None) -> pd.DataFrame:
     """Fourchettes en ligne, date par date, sur le panel (date, factor).
 
     gamma = 0 donne la CP normalisée simple ; gamma > 0 donne l'ACI.
+    window = nombre de mois de scores conservés (None : tout l'historique).
     """
     df = pd.DataFrame({"z": z, "zhat": zhat, "sigma": sigma}).dropna(subset=["zhat", "sigma"])
     dates = sorted(df.index.get_level_values("date").unique())
     past_scores: list[float] = []
+    n_factors = df.index.get_level_values("factor").nunique()
+    keep = None if window is None else window * n_factors
     alpha_t = alpha
     rows = []
     for t in dates:
@@ -64,6 +68,8 @@ def conformal_intervals(z: pd.Series, zhat: pd.Series, sigma: pd.Series, alpha: 
         # les scores du mois t ne sont connus qu'à t+1 : on les ajoute après usage
         observed = today.dropna(subset=["z"])
         past_scores.extend(np.abs(observed["z"] - observed["zhat"]).tolist())
+        if keep is not None and len(past_scores) > keep:
+            past_scores = past_scores[-keep:]
     return pd.concat(rows).sort_index()
 
 
