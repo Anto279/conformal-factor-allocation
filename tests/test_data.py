@@ -52,6 +52,9 @@ def test_daily_compounds_to_monthly(real_data):
 
     L'égalité n'est pas exacte : un facteur long-short mensuel est la différence
     de deux rendements mensuels, pas le produit des différences quotidiennes.
+    Le momentum est un cas à part : la version quotidienne de French reconstitue
+    ses portefeuilles chaque jour, la version mensuelle chaque mois. Les deux
+    séries sont proches (corrélation ~0,97) mais ce ne sont pas les mêmes.
     """
     monthly, daily = real_data
     comp = (1 + daily[FACTORS]).resample("ME").prod() - 1
@@ -59,8 +62,9 @@ def test_daily_compounds_to_monthly(real_data):
     common = monthly.index.intersection(comp.index)
     for f in FACTORS:
         a, b = monthly.loc[common, f], comp.loc[common, f]
-        assert np.corrcoef(a, b)[0, 1] > 0.98, f
-        assert (a - b).abs().median() < 0.003, f
+        corr_min, gap_max = (0.95, 0.006) if f == "MOM" else (0.99, 0.001)
+        assert np.corrcoef(a, b)[0, 1] > corr_min, f
+        assert (a - b).abs().median() < gap_max, f
 
 
 def test_orders_of_magnitude(real_data):
