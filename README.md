@@ -255,6 +255,142 @@ On regroupe les facteurs avec la distance $d_{ij} = \sqrt{2(1 - \rho_{ij})}$ (0 
 - Leur volatilité et leurs corrélations changent fortement dans le temps.
 - Hormis HML et CMA, les facteurs sont peu corrélés entre eux, et l'ACP ne trouve aucune composante dominante : combiner les facteurs diversifie réellement le risque.
 
+## Étape 4 : le modèle explique-t-il les rendements d'une action et d'un portefeuille ?
+
+Code et résultats : [`notebooks/etape4_regression.ipynb`](notebooks/etape4_regression.ipynb).
+
+On estime la régression de l'étape 2 **entre le rendement du mois $t$ et les facteurs du même mois $t$** :
+
+$$
+R_{i,t} - R_{f,t} = \alpha_i + \beta_i\,\mathrm{MKT}_t + s_i\,\mathrm{SMB}_t + h_i\,\mathrm{HML}_t + r_i\,\mathrm{RMW}_t + c_i\,\mathrm{CMA}_t + m_i\,\mathrm{MOM}_t + \varepsilon_{i,t}
+$$
+
+Le but est explicatif : mesurer quelle part des variations de rendement les facteurs expliquent, pas prévoir le mois suivant. On s'attend à ce que le modèle explique bien un portefeuille diversifié et beaucoup moins bien une action seule.
+
+### 4.1 Données et cibles
+
+- **Période** : janvier 2000 à août 2026, soit 320 mois.
+- **Cours** : clôtures mensuelles ajustées des dividendes et des divisions d'actions (Yahoo Finance), téléchargées avec [`scripts/telecharger_cours.py`](scripts/telecharger_cours.py). Rendement du mois : $R_t = P_t/P_{t-1} - 1$.
+- **Action seule : Apple (AAPL).** Connue de tous, avec un long historique et un fort risque propre.
+- **Portefeuille diversifié : 107 grandes capitalisations américaines** couvrant les 11 secteurs (liste dans [`scripts/univers.py`](scripts/univers.py)), **équipondérées et rééquilibrées chaque mois** : $R_{P,t} = \frac{1}{N}\sum_j R_{j,t}$. Trois titres prévus (BK, MMC, AEP) ont été écartés faute de données.
+  - *Équipondéré* : le facteur marché est déjà pondéré par la capitalisation. Un portefeuille pondéré de la même façon serait expliqué presque par construction, ce qui ne testerait rien.
+  - *11 secteurs* : les chocs propres à un secteur se compensent.
+  - *Plus de 100 titres* : avec $N$ titres indépendants de même risque propre $\sigma_\varepsilon$, la variance spécifique du portefeuille vaut $\sigma_\varepsilon^2/N$ et disparaît quand $N$ grandit.
+- **Points de comparaison** : SPY (S&P 500, pondéré par la capitalisation) et RSP (S&P 500 équipondéré, depuis mai 2003).
+- **Estimation** : moindres carrés ordinaires, avec des t-stats calculées avec les erreurs standard de Newey-West (6 retards), robustes à l'hétéroscédasticité et à l'autocorrélation des résidus.
+
+### 4.2 Résultats principaux
+
+| | Apple | Portefeuille diversifié | RSP | SPY |
+|---|---:|---:|---:|---:|
+| **R²** | **37 %** | **94 %** | 96,5 % | 99,4 % |
+| R² ajusté | 36 % | 94 % | 96,4 % | 99,4 % |
+| R² du CAPM (marché seul) | 30 % | 84 % | 92 % | 98 % |
+| Volatilité totale (% par an) | 37,5 | 14,8 | 16,4 | 15,2 |
+| Volatilité spécifique (% par an) | 30,1 | 3,7 | 3,1 | 1,2 |
+| Alpha (% par an) | 20,9 (t = 3,4) | 2,9 (t = 4,1) | −0,6 (t = −0,9) | −0,2 (t = −1,0) |
+
+Le R² ajusté vaut $1 - (1-R^2)\frac{T-1}{T-k-1}$ avec $k = 6$. La volatilité spécifique vaut $\sqrt{12}\,\hat\sigma_\varepsilon$.
+
+![Rendement observé contre rendement expliqué](docs/figures/regression_observe_vs_explique.png)
+
+- **Pour Apple, les facteurs n'expliquent que 37 % de la variance.** Les points sont très dispersés autour de la diagonale. La volatilité spécifique (30 % par an) est presque aussi forte que la volatilité totale (37,5 %) : l'essentiel du risque d'Apple tient à Apple elle-même (produits, résultats, annonces).
+- **Pour le portefeuille, ils en expliquent 94 %.** Les points collent à la diagonale, et le risque spécifique tombe à 3,7 % par an pour une volatilité totale de 14,8 %. C'est exactement l'idée de l'étape 1 : une fois diversifié, il ne reste presque que le risque des facteurs.
+- **Les cinq facteurs ajoutés au marché comptent.** Ils font passer le R² de 84 % à 94 % pour le portefeuille et de 30 % à 37 % pour Apple. Pour SPY, le marché seul explique déjà 98 % : c'est attendu, car SPY et le facteur marché sont deux portefeuilles pondérés par la capitalisation des mêmes grandes actions.
+- **L'alpha de SPY et de RSP est nul** (t < 1), ce que le modèle prédit pour un fonds indiciel. Le léger chiffre négatif, non significatif, est de l'ordre des frais de gestion.
+- **L'alpha d'Apple et du portefeuille est positif et significatif, mais il ne faut pas le lire comme une surperformance exploitable.** Il vient d'un biais de sélection : Apple a été choisie parce qu'elle est aujourd'hui l'une des plus grandes entreprises du monde, et le portefeuille ne contient que des entreprises toujours cotées en 2026 (biais du survivant). Les entreprises disparues depuis 2000, qui auraient tiré le rendement vers le bas, en sont absentes. Ce biais touche le rendement moyen, donc l'alpha, mais très peu le R².
+
+### 4.3 Les expositions
+
+| | Mkt-RF | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|---:|
+| **Apple** | **1,21** (7,9) | 0,25 (1,4) | **−0,57** (−3,2) | 0,25 (1,8) | **−0,67** (−2,2) | −0,03 (−0,2) |
+| **Portefeuille** | **0,91** (57,7) | −0,02 (−0,6) | **0,19** (6,2) | **0,15** (6,0) | **0,25** (6,3) | **−0,06** (−4,1) |
+
+*t-stats de Newey-West entre parenthèses, en gras quand |t| > 2.*
+
+![Expositions aux facteurs](docs/figures/regression_expositions.png)
+
+**Apple : une action de croissance plus risquée que le marché.**
+- $\beta = 1{,}21$ : quand le marché fait +1 %, Apple fait en moyenne +1,21 %.
+- $h = -0{,}57$ et $c = -0{,}67$ : Apple se comporte comme une action chère (« growth ») d'une entreprise qui investit beaucoup, c'est-à-dire à l'opposé des jambes longues de HML et CMA. C'est cohérent avec son profil sur la période : forte croissance, valorisation élevée par rapport aux fonds propres.
+- Les intervalles de confiance sont larges : avec autant de risque spécifique, chaque exposition est estimée avec beaucoup d'incertitude.
+- Sur tout l'historique depuis 1990 (439 mois), on retrouve les mêmes signes, avec en plus une exposition à la taille ($s = 0{,}34$, t = 2,1) : dans les années 1990, Apple était une entreprise de taille moyenne en difficulté. Le R² tombe à 28 %.
+
+**Le portefeuille : un profil défensif et « qualité ».**
+- $\beta = 0{,}91$, mesuré très précisément (t = 58).
+- Expositions positives à HML, RMW et CMA : des entreprises établies, rentables et prudentes. L'équipondération donne aussi probablement plus de poids qu'au sein du marché aux secteurs défensifs (consommation de base, santé, services aux collectivités), face aux géants technologiques.
+- $s \approx 0$ : ce sont de grandes capitalisations, mais l'équipondération donne autant de poids aux « petites » grandes entreprises qu'aux géants, et les deux effets se compensent.
+- **$m = -0{,}06$, une conséquence mécanique de la construction.** Rééquilibrer chaque mois vers des poids égaux revient à vendre ce qui a monté et à racheter ce qui a baissé : c'est l'inverse du momentum. On retrouve le même effet, plus fort, sur RSP ($m = -0{,}10$), alors que SPY, qui ne se rééquilibre pas, n'a quasiment pas d'exposition au momentum.
+
+### 4.4 D'où vient la variance
+
+Avec les coefficients MCO, la variance se décompose exactement :
+
+$$
+\mathrm{Var}(y) = \sum_k b_k\,\mathrm{Cov}(F_k, y) + \mathrm{Var}(\varepsilon)
+$$
+
+La contribution du facteur $k$ est $b_k\,\mathrm{Cov}(F_k, y)/\mathrm{Var}(y)$. Les contributions des facteurs somment au R² et le reste est la part spécifique. Une contribution peut être légèrement négative quand deux facteurs corrélés se compensent.
+
+![Décomposition de la variance](docs/figures/regression_decomposition_variance.png)
+
+| | Mkt-RF | SMB | HML | RMW | CMA | Mom | Spécifique |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Apple | 27,8 | 1,0 | 4,6 | −1,6 | 4,9 | 0,2 | **63,0** |
+| Portefeuille diversifié | 88,3 | −0,2 | 3,8 | −1,5 | 0,3 | 3,2 | **6,1** |
+| RSP | 87,2 | 3,9 | 2,1 | −0,7 | 0,0 | 3,9 | **3,5** |
+| SPY | 100,9 | −1,5 | 0,0 | −0,9 | −0,3 | 1,2 | **0,6** |
+
+*En % de la variance du rendement mensuel.*
+
+- Le marché domine partout. Même pour Apple, c'est le premier facteur, mais il ne pèse que 28 % de la variance contre 63 % pour la part spécifique.
+- Pour le portefeuille, les facteurs de style (HML, Mom) ajoutent environ 7 points au marché, et la part spécifique n'est plus que de 6 %.
+
+### 4.5 Le R² en fonction du nombre d'actions
+
+On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipondéré et on calcule le R². On répète 300 fois pour chaque $N$.
+
+![R² en fonction du nombre d'actions](docs/figures/regression_r2_nombre_actions.png)
+
+| Nombre d'actions | 1 | 2 | 5 | 10 | 20 | 30 | 50 | 100 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| R² médian | 37 % | 47 % | 66 % | 78 % | 86 % | 89 % | 92 % | 94 % |
+| 80 % des tirages entre | 18 et 54 % | 30 et 62 % | 54 et 74 % | 70 et 83 % | 82 et 89 % | 86 et 91 % | 90 et 93 % | 93 et 94 % |
+
+- **Apple est une action typique** : son R² (37 %) est égal à la médiane des actions prises seules.
+- **La diversification fait l'essentiel du travail très vite.** On passe de 37 % à 78 % avec 10 actions, et à 89 % avec 30. Au-delà, le gain ralentit fortement : c'est la décroissance en $1/N$ de la variance spécifique.
+- **Le R² plafonne vers 94 %.** Une petite part de la variance reste inexpliquée même avec 100 titres. Elle vient probablement de chocs sectoriels (pétrole, banques, technologie) qui ne correspondent à aucun des six facteurs, et que l'équipondération pèse différemment du marché.
+
+### 4.6 Stabilité dans le temps
+
+![R² glissant sur 3 ans](docs/figures/regression_r2_glissant.png)
+
+- Le R² d'Apple varie fortement, de 23 % (2006) à 81 % (2022). Pendant les crises (2008, 2020-2022), toutes les actions bougent ensemble avec le marché et le R² monte. En période calme, ce sont les nouvelles propres à Apple qui dominent.
+- Le R² du portefeuille reste entre 92 et 99 % jusqu'en 2024, puis baisse à 85 % fin 2026. Hypothèse, non testée ici : le marché pondéré par la capitalisation est de plus en plus concentré sur quelques géants technologiques, et un portefeuille équipondéré s'en écarte davantage.
+
+### 4.7 Diagnostic des résidus
+
+| | Apple | Portefeuille | RSP | SPY |
+|---|---:|---:|---:|---:|
+| Durbin-Watson | 1,97 | 1,91 | 1,85 | 2,27 |
+| Kurtosis des résidus | 6,7 | 4,8 | 4,8 | 7,7 |
+| p-valeur Jarque-Bera | < 0,001 | < 0,001 | < 0,001 | < 0,001 |
+| p-valeur Breusch-Pagan | 0,010 | 0,715 | 0,268 | 0,005 |
+
+- **Pas d'autocorrélation** : les statistiques de Durbin-Watson sont proches de 2.
+- **Résidus non normaux** : ils ont des queues épaisses (kurtosis de 4,8 à 7,7, contre 3 pour une loi normale).
+- **Hétéroscédasticité** pour Apple et SPY : la variance des résidus dépend des facteurs.
+- Ces écarts ne biaisent pas les coefficients, mais ils faussent les erreurs standard classiques. C'est pourquoi les t-stats sont calculées avec Newey-West.
+
+### 4.8 À retenir de l'étape 4
+
+- Le modèle à six facteurs explique **94 % de la variance d'un portefeuille diversifié** de 107 actions, mais **seulement 37 % de celle d'Apple**.
+- La différence est le risque spécifique : 63 % de la variance d'Apple, 6 % de celle du portefeuille. Il disparaît avec la diversification, et dès 30 actions le R² dépasse 89 %.
+- Les facteurs de style apportent une information réelle au-delà du marché : 10 points de R² en plus pour le portefeuille.
+- Les expositions estimées ont un sens économique : Apple est une valeur de croissance à bêta élevé, le portefeuille équipondéré est défensif et légèrement anti-momentum, par construction.
+- Conclusion pour la suite : ce qui reste dans un portefeuille diversifié, c'est le risque des facteurs. C'est donc entre ces facteurs qu'il faut répartir le risque.
+
 ## Références
 
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
