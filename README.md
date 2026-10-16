@@ -190,7 +190,7 @@ Les facteurs se relaient : dans les années 2000, le marché perd de l'argent pe
 
 ### 3.4 Corrélations
 
-![Matrice de corrélation](docs/figures/matrice_correlation.png)
+<p align="center"><img src="docs/figures/matrice_correlation.png" alt="Matrice de corrélation" width="560"></p>
 
 Avec 758 mois, une corrélation est significative au seuil de 5 % dès que $|\rho| > 1{,}96/\sqrt{758} \approx 0{,}07$. La corrélation moyenne en valeur absolue entre deux facteurs n'est que de **0,18**.
 
@@ -232,7 +232,7 @@ L'ACP est faite sur les rendements centrés-réduits, c'est-à-dire sur la matri
 - **CP3 (17 %), le momentum seul** : Mom pèse 0,76, RMW −0,47. Le momentum forme une dimension à part.
 - **CP6 (5 %) est la différence entre HML et CMA** (poids −0,67 et +0,69). Cette composante a très peu de variance, c'est la traduction de la redondance entre value et investissement.
 
-![Cercle des corrélations](docs/figures/acp_cercle_correlations.png)
+<p align="center"><img src="docs/figures/acp_cercle_correlations.png" alt="Cercle des corrélations" width="500"></p>
 
 Sur le cercle des corrélations, HML et CMA sont presque superposées et proches du bord : elles sont bien représentées dans ce plan et très corrélées entre elles. Le marché est à l'opposé, ce qui reflète les corrélations négatives vues plus haut. La flèche du momentum est courte (0,51) : il est mal représenté par ce plan et s'exprime surtout sur CP3.
 
@@ -240,7 +240,7 @@ Sur le cercle des corrélations, HML et CMA sont presque superposées et proches
 
 On regroupe les facteurs avec la distance $d_{ij} = \sqrt{2(1 - \rho_{ij})}$ (0 si $\rho = 1$, $\sqrt 2 \approx 1{,}41$ si $\rho = 0$, 2 si $\rho = -1$) et la méthode d'agrégation de Ward.
 
-![Dendrogramme](docs/figures/dendrogramme.png)
+<p align="center"><img src="docs/figures/dendrogramme.png" alt="Dendrogramme" width="680"></p>
 
 - **HML et CMA fusionnent en premier, à 0,80**, la seule paire nettement sous le seuil d'indépendance ($\sqrt 2$).
 - **Mkt-RF et SMB fusionnent à 1,21** : le bloc « directionnel », exposé au risque de marché.
