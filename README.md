@@ -492,11 +492,120 @@ La courbe lissée suit la droite dans la zone où se trouvent presque tous les m
 - **Avec 320 mois, l'information mutuelle est beaucoup moins puissante.** Elle ne juge significatif qu'un lien d'une force équivalente à $\rho > 0{,}31$, contre $0{,}11$ pour Pearson. Elle passe à côté de liens linéaires faibles, mais bien réels, comme ceux de SMB ou RMW.
 - **Elle reste utile comme diagnostic.** Elle confirme que le modèle linéaire suffit, et elle signale ce que la corrélation ne voit pas. Le marché et le portefeuille chutent ensemble plus souvent qu'une loi normale ne le prévoit, et la dispersion des écarts au modèle varie avec les facteurs. Ces deux points concernent le **risque**, pas le rendement moyen.
 
+## Étape 6 : les expositions aux facteurs sont-elles stables dans le temps ?
+
+Code et résultats : [`notebooks/etape6_stabilite_expositions.ipynb`](notebooks/etape6_stabilite_expositions.ipynb).
+
+La régression de l'étape 4 a été estimée une seule fois sur 2000-2026, ce qui suppose des expositions (les bêtas) constantes pendant 26 ans. Pour vérifier cette hypothèse, on ré-estime la même régression, sur les mêmes cibles (Apple et le portefeuille diversifié), période par période et régime par régime. On teste ensuite si les écarts dépassent ce que le bruit statistique suffit à produire.
+
+### 6.1 Périodes et régimes de marché
+
+**Quatre sous-périodes**, de 72 à 84 mois chacune, soit plus de dix mois par coefficient estimé :
+
+| Période | Contexte |
+|---|---|
+| 2000-2006 | éclatement de la bulle internet, puis reprise |
+| 2007-2012 | crise financière, puis crise des dettes souveraines en zone euro |
+| 2013-2019 | expansion longue et peu volatile, taux bas |
+| 2020-2026 | Covid, inflation et hausse des taux, essor de l'IA |
+
+**Deux régimes de volatilité.** Chaque mois, on calcule la volatilité du marché sur les 12 mois précédents. Au-dessus de sa médiane (14,1 % par an), le mois est classé en « volatilité forte », sinon en « volatilité faible ». Cela donne 160 mois de chaque type, qui regroupent des mois éloignés dans le temps mais pris dans un même climat de marché.
+
+![Périodes et régimes de volatilité](docs/figures/regimes_volatilite_marche.png)
+
+### 6.2 Les expositions période par période
+
+| | 2000-2026 | 2000-2006 | 2007-2012 | 2013-2019 | 2020-2026 | p-valeur |
+|---|---:|---:|---:|---:|---:|---:|
+| **Apple** : Mkt-RF | 1,21 | 1,37 | 1,47 | 1,01 | 1,12 | 0,47 |
+| SMB | 0,25 | 0,68 | −0,02 | 0,04 | −0,15 | 0,34 |
+| HML | −0,57 | 0,25 | −0,98 | −0,06 | −0,59 | 0,10 |
+| RMW | 0,25 | 0,02 | 0,06 | **1,77** | 0,28 | **0,01** |
+| CMA | −0,67 | −2,15 | −0,99 | −1,93 | **0,32** | **< 0,001** |
+| Mom | −0,03 | −0,03 | 0,02 | −0,09 | −0,19 | 0,87 |
+| R² | 37 % | 40 % | 50 % | 45 % | 59 % | |
+| **Portefeuille** : Mkt-RF | 0,91 | 0,95 | 0,93 | 0,97 | 0,88 | 0,05 |
+| SMB | −0,02 | 0,01 | −0,08 | −0,04 | 0,04 | 0,34 |
+| HML | 0,19 | 0,15 | 0,18 | **−0,03** | 0,26 | **< 0,001** |
+| RMW | 0,15 | 0,23 | 0,12 | 0,07 | 0,12 | 0,17 |
+| CMA | 0,25 | 0,26 | **0,04** | 0,36 | 0,30 | **< 0,001** |
+| Mom | −0,06 | −0,10 | −0,06 | −0,01 | −0,05 | 0,04 |
+| R² | 94 % | 93 % | 98 % | 97 % | 93 % | |
+
+**Comment lire la p-valeur.** On estime un seul modèle dans lequel chaque coefficient peut prendre une valeur différente dans chaque période, puis on teste si ces valeurs sont égales (test de Chow, sous forme de test de Wald avec les erreurs standard de Newey-West). Une p-valeur faible signifie que l'exposition change vraiment d'une période à l'autre. Le test joint des six expositions rejette la stabilité pour les deux cibles (p < 0,001).
+
+![Expositions par période](docs/figures/regimes_expositions_periodes.png)
+
+**Apple : le bêta de marché paraît bouger, mais rien ne le prouve. Le profil de style, lui, suit la transformation de l'entreprise.**
+- Le bêta de marché va de 1,01 à 1,47, mais les intervalles de confiance se recouvrent largement et le test ne rejette pas l'égalité (p = 0,47). Sur 80 mois d'une action aussi volatile, un écart de 0,5 reste dans le bruit d'estimation.
+- **CMA passe de −2,15 à +0,32** (p < 0,001). Lecture économique probable : en 2000-2006, Apple est une entreprise moyenne en pleine expansion (iPod, magasins), qui fait croître son actif très vite : c'est le profil « investissement agressif ». En 2020-2026, elle rachète massivement ses propres actions, ce qui freine la croissance de son actif : elle ressemble alors à une entreprise à « investissement conservateur ».
+- **RMW monte à 1,77 en 2013-2019** (p = 0,01) : c'est la période où les marges de l'iPhone font d'Apple l'une des entreprises les plus rentables au monde.
+- SMB vaut +0,68 en 2000-2006, quand Apple était encore une capitalisation moyenne, puis devient nul ou négatif. Le test n'est pas significatif, mais le sens économique est clair.
+
+**Portefeuille : le bêta de marché est stable, certaines expositions de style le sont moins.**
+- Le bêta de marché reste entre 0,88 et 0,97. Le test est à la limite du seuil (p = 0,05), mais l'écart est faible en valeur.
+- **HML tombe à −0,03 en 2013-2019**, contre 0,15 à 0,26 dans les autres périodes. **CMA tombe à 0,04 en 2007-2012**, contre 0,26 à 0,36 ailleurs. Une explication plausible : la composition des secteurs « value » change d'une décennie à l'autre (banques et énergie en crise, puis fortes hausses des valeurs de croissance en 2013-2019), alors que les poids du portefeuille restent fixes.
+
+### 6.3 Régimes de volatilité
+
+| | Apple, vol. faible | Apple, vol. forte | p-valeur | Portefeuille, vol. faible | Portefeuille, vol. forte | p-valeur |
+|---|---:|---:|---:|---:|---:|---:|
+| Mkt-RF | 1,45 | 1,15 | 0,41 | 0,92 | 0,89 | 0,36 |
+| HML | −0,08 | −0,69 | 0,15 | 0,15 | 0,21 | 0,45 |
+| RMW | 0,95 | 0,13 | 0,01 | 0,19 | 0,13 | 0,32 |
+| CMA | −0,82 | −0,56 | 0,65 | 0,28 | 0,27 | 0,89 |
+| Mom | 0,37 | −0,11 | 0,13 | −0,01 | −0,09 | 0,01 |
+| R² | 31 % | 45 % | | 90 % | 96 % | |
+| Test joint des six expositions | | | 0,05 | | | 0,008 |
+
+SMB, qui ne change significativement pour aucune des deux cibles, est dans le notebook.
+
+- **Le bêta de marché ne change pas avec la volatilité**, ni pour Apple ni pour le portefeuille.
+- **Les différences sont bien plus faibles qu'entre périodes.** Ce qui fait bouger les expositions, c'est surtout l'époque, avec ses secteurs dominants et la vie des entreprises, plus que le niveau de stress du marché.
+- **Le portefeuille est plus anti-momentum en période agitée** (−0,09 contre −0,01, p = 0,01). C'est cohérent avec l'étape 4 : le rééquilibrement mensuel vend ce qui a monté et achète ce qui a baissé. Cet effet pèse plus quand les écarts de performance entre titres sont grands, donc quand le marché est agité.
+- **Le R² est plus élevé quand la volatilité est forte** (96 % contre 90 % pour le portefeuille, 45 % contre 31 % pour Apple). En période de stress, les chocs communs dominent les nouvelles propres à chaque entreprise.
+
+### 6.4 Bêtas glissants : variation réelle ou bruit d'estimation ?
+
+On ré-estime la régression sur chaque fenêtre de 36 mois. Un bêta glissant bouge toujours un peu, même si le vrai bêta est constant. Pour mesurer ce bruit, on simule 500 historiques dans lesquels les bêtas sont **constants** (égaux à l'estimation 2000-2026). Leurs résidus sont tirés par blocs de 12 mois parmi les vrais résidus. La bande grise contient 90 % des bêtas glissants simulés. Si les vrais bêtas étaient constants, le bêta observé en sortirait environ 10 % du temps.
+
+![Bêtas glissants du portefeuille](docs/figures/regimes_betas_glissants_portefeuille.png)
+
+![Bêtas glissants d'Apple](docs/figures/regimes_betas_glissants_apple.png)
+
+| Part des mois hors de la bande (10 % attendus si les bêtas sont constants) | Mkt-RF | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|---:|
+| Apple | 13 % | 16 % | 9 % | 12 % | **22 %** | 7 % |
+| Portefeuille | 4 % | 5 % | **40 %** | 4 % | **15 %** | 9 % |
+
+- **Pour le portefeuille, le bêta de marché reste dans la bande presque tout le temps** : sa variation est entièrement compatible avec le bruit. **HML en sort 40 % du temps.** Il passe de +0,2 à −0,2 au milieu des années 2000, reste près de 0 entre 2012 et 2020, puis monte à +0,55 sur les trois dernières années.
+- **Pour Apple, les bandes sont très larges**, car le risque spécifique est énorme (30 % par an). La plupart des mouvements, même spectaculaires, restent dans le bruit. Seul CMA en sort nettement plus souvent que prévu, ce qui confirme le basculement vu en 6.2. Le pic du bêta de marché vers 4 en 2007 sort de la bande, mais il est isolé.
+
+### 6.5 L'instabilité compte-t-elle en pratique ?
+
+On compare l'écart de suivi, c'est-à-dire la volatilité annualisée de la partie non expliquée, dans deux cas : avec les bêtas estimés une fois sur 2000-2026, et avec les bêtas ré-estimés dans chaque période. On corrige du nombre de coefficients (7 contre 28), comme pour un $R^2$ ajusté.
+
+| | Bêtas constants | Bêtas par période | Baisse |
+|---|---:|---:|---:|
+| Apple | 30,1 % | 29,0 % | −3,5 % |
+| Portefeuille | 3,7 % | 3,4 % | −7,4 % |
+
+Laisser les bêtas changer améliore l'explication, mais peu : l'essentiel du lien entre facteurs et rendements est capté par des bêtas constants.
+
+### 6.6 À retenir de l'étape 6
+
+- **Les bêtas ne sont pas parfaitement stables** : pour les deux cibles, le test joint rejette l'égalité des expositions entre les quatre périodes (p < 0,001).
+- **Ce qui est stable, c'est le bêta de marché d'un portefeuille diversifié** : entre 0,88 et 0,97 sur toutes les périodes et dans les deux régimes, et toujours dans la bande du bruit d'estimation.
+- **Ce qui bouge, ce sont certaines expositions de style** : HML et CMA pour le portefeuille, CMA et RMW pour Apple. Elles changent d'une époque à l'autre bien plus qu'entre marchés calmes et agités. Pour une action seule, elles suivent la vie de l'entreprise : Apple est passée d'une entreprise moyenne en forte croissance à un géant très rentable qui rachète ses actions.
+- **Une bonne partie de la variation apparente n'est que du bruit.** Sur 36 mois, un bêta glissant peut bouger beaucoup sans que le vrai bêta change. Il faut donc tester avant de conclure, d'autant qu'on fait ici de nombreux tests.
+- **Pour la partie allocation à venir** : les expositions doivent être ré-estimées régulièrement plutôt que fixées une fois pour toutes. Comme leurs variations sont lentes et en partie dues au bruit, il vaut mieux ne pas réagir à chaque mouvement de court terme.
+
 ## Références
 
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
+- Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
