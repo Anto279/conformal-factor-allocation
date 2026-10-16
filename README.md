@@ -391,6 +391,107 @@ On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipond�
 - Les expositions estimées ont un sens économique : Apple est une valeur de croissance à bêta élevé, le portefeuille équipondéré est défensif et légèrement anti-momentum, par construction.
 - Conclusion pour la suite : ce qui reste dans un portefeuille diversifié, c'est le risque des facteurs. C'est donc entre ces facteurs qu'il faut répartir le risque.
 
+## Étape 5 : faut-il regarder le lien entre facteurs et rendements de façon non linéaire ?
+
+Code et résultats : [`notebooks/etape5_information_mutuelle.ipynb`](notebooks/etape5_information_mutuelle.ipynb).
+
+La régression de l'étape 4 suppose un lien **linéaire** entre facteurs et rendements. On se demande si une mesure qui capte aussi les liens non linéaires, l'**information mutuelle**, révèle quelque chose que la corrélation de Pearson ne voit pas. Mêmes cibles (Apple et le portefeuille diversifié), même période (2000-2026, 320 mois), même lien contemporain (mois $t$ contre mois $t$).
+
+### 5.1 Les deux mesures
+
+**Corrélation de Pearson.** Elle mesure l'intensité d'un lien linéaire :
+
+$$\rho_{XY} = \frac{\mathrm{Cov}(X,Y)}{\sigma_X\,\sigma_Y} \in [-1, 1]$$
+
+Une corrélation nulle ne veut pas dire absence de lien : si $X$ est centré symétrique et $Y = X^2$, $Y$ dépend entièrement de $X$ et pourtant $\rho_{XY} = 0$.
+
+**Information mutuelle.** Elle compare la loi jointe du couple à ce qu'elle serait si $X$ et $Y$ étaient indépendants :
+
+$$I(X;Y) = \iint p(x,y)\,\ln\frac{p(x,y)}{p(x)\,p(y)}\,dx\,dy \;\ge 0$$
+
+Elle vaut 0 **si et seulement si** $X$ et $Y$ sont indépendants, quelle que soit la forme du lien. Elle n'a pas de signe et s'exprime en *nats*.
+
+**Pour comparer les deux sur la même échelle.** Pour un couple gaussien de corrélation $\rho$, $I = -\tfrac12\ln(1-\rho^2)$. On en tire la **corrélation équivalente** $\rho_I = \sqrt{1-e^{-2I}}$ (Linfoot, 1957), comprise entre 0 et 1. Si le lien est linéaire et gaussien, $\rho_I = |\rho|$. Si $\rho_I$ dépasse nettement $|\rho|$, l'information mutuelle voit un lien que la corrélation ne voit pas.
+
+### 5.2 Les deux tests de significativité
+
+| | Corrélation de Pearson | Information mutuelle |
+|---|---|---|
+| Hypothèse testée | $\rho = 0$ (pas de lien linéaire) | $I = 0$ (indépendance totale) |
+| Statistique | $t = \hat\rho\sqrt{T-2}\,/\sqrt{1-\hat\rho^2}$, loi de Student à $T-2$ degrés de liberté | estimateur des plus proches voisins de Kraskov et al. (2004), $k = 5$ |
+| Loi sous l'hypothèse | connue | obtenue par **permutation** : on mélange 5 000 fois l'ordre des mois de $Y$, ce qui casse tout lien avec $X$ |
+| Seuil à 5 % pour $T = 320$ | $\lvert\hat\rho\rvert > 0{,}11$ | $\hat I > 0{,}050$ nat, soit $\rho_I > 0{,}31$ |
+
+Avant d'estimer l'information mutuelle, chaque variable est remplacée par ses scores normaux $\Phi^{-1}\big(\text{rang}/(T+1)\big)$. L'information mutuelle ne change pas quand on transforme une variable de façon croissante : on ne perd rien, et l'estimateur devient moins sensible aux mois extrêmes.
+
+La dernière ligne du tableau résume déjà le problème : **pour être jugé significatif, un lien doit être presque trois fois plus fort avec l'information mutuelle qu'avec Pearson.**
+
+### 5.3 Résultats, facteur par facteur
+
+| Facteur | Apple : $\rho$ | Apple : $\rho_I$ | Portefeuille : $\rho$ | Portefeuille : $\rho_I$ |
+|---|---:|---:|---:|---:|
+| Mkt-RF | **0,55** | **0,62** | **0,91** | **0,95** |
+| SMB | **0,15** | 0,21 | **0,22** | 0,06 |
+| HML | **−0,26** | **0,35** | **0,24** | 0,25 |
+| RMW | **−0,23** | 0,00 | **−0,14** | **0,36** |
+| CMA | **−0,35** | **0,32** | 0,02 | 0,17 |
+| Mom | **−0,16** | 0,00 | **−0,43** | **0,42** |
+
+En gras : significatif à 5 %. P-valeurs détaillées dans le notebook.
+
+![Pearson contre information mutuelle](docs/figures/mi_pearson_significativite.png)
+
+- **Pearson détecte 11 liens sur 12, l'information mutuelle 6.** Les 6 liens détectés par l'information mutuelle sont tous détectés par Pearson. Elle ne trouve **aucun lien que Pearson aurait manqué**.
+- **Les liens forts sont vus par les deux mesures** : le marché pour les deux cibles, le momentum pour le portefeuille, HML et CMA pour Apple. Pour le marché, $\rho_I$ est proche de $|\rho|$ : le lien est essentiellement linéaire.
+- **Les liens faibles (|ρ| entre 0,15 et 0,24) échappent à l'information mutuelle**, alors qu'ils sont nets pour Pearson (p-valeurs toutes inférieures à 0,01). Deux estimations valent même exactement 0 pour Apple (RMW et Mom), bien que $|\rho|$ dépasse 0,16.
+- **Deux couples ont un $\rho_I$ nettement au-dessus de $|\rho|$** : HML-Apple (0,35 contre 0,26) et RMW-portefeuille (0,36 contre 0,14). La partie 5.5 montre que ce surplus n'est pas significatif et ne laisse aucune trace une fois la régression estimée.
+- **Les valeurs faibles de l'information mutuelle sont instables** : selon le nombre de voisins $k$ (3, 5, 10 ou 20), l'estimation pour HML-Apple varie de 0,01 à 0,08 nat. Les valeurs fortes (marché) ne bougent presque pas.
+
+### 5.4 Pourquoi les deux tests ne concluent pas pareil : la puissance
+
+La **puissance** d'un test est la probabilité de détecter un lien qui existe vraiment. On la mesure par simulation, avec 320 observations comme dans nos données, dans deux cas : un lien linéaire, terrain de Pearson, et un lien en U ($Y = a(X^2-1) + \text{bruit}$, corrélation nulle), terrain de l'information mutuelle.
+
+![Puissance des deux tests](docs/figures/mi_puissance_tests.png)
+
+- **Lien linéaire** : pour $\rho = 0{,}2$, Pearson détecte le lien 94 fois sur 100, l'information mutuelle 14 fois sur 100. C'est exactement l'ordre de grandeur des liens de style observés.
+- **Lien en U** : la situation s'inverse. Pour $a = 0{,}3$, l'information mutuelle détecte le lien 70 fois sur 100, Pearson 12 fois sur 100.
+- **C'est le prix de la généralité.** Pearson ne cherche qu'une seule forme de lien et concentre toute l'information de l'échantillon sur elle. L'information mutuelle cherche toutes les formes possibles et a besoin de beaucoup plus de données pour en confirmer une. Avec 320 mois, elle ne voit que les liens forts.
+
+Conclusion intermédiaire : quand l'information mutuelle n'est pas significative et Pearson l'est, ce n'est pas un désaccord sur l'existence du lien, c'est un manque de puissance.
+
+### 5.5 Reste-t-il un lien non linéaire ?
+
+La comparaison précédente ne dit pas si le lien a une composante non linéaire. Trois tests y répondent directement.
+
+**1. Les nuages de points.** Pour chaque facteur, on trace la droite de régression simple et une courbe lissée (LOWESS), qui suit les données sans imposer de forme.
+
+![Nuages de points](docs/figures/mi_nuages_points.png)
+
+La courbe lissée suit la droite dans la zone où se trouvent presque tous les mois. Elle ne s'en écarte qu'aux extrémités, là où il n'y a que quelques points : ces écarts viennent de quelques mois isolés, pas d'une forme non linéaire.
+
+**2. L'information mutuelle comparée au cas gaussien.** Si le lien était linéaire et gaussien, l'information mutuelle vaudrait $-\tfrac12\ln(1-\rho^2)$. On simule 1 000 échantillons gaussiens de 320 mois avec la même corrélation et on regarde si l'information mutuelle observée dépasse ce qu'on obtient par simulation.
+- Un seul couple sur 12 dépasse significativement le cas gaussien : **marché et portefeuille** (1,12 nat contre 0,91 attendu, p = 0,001). HML-Apple et RMW-portefeuille restent compatibles avec lui (p = 0,11 et 0,08).
+- Ce surplus ne vient pas d'une courbe : la régression linéaire laisse des résidus indépendants du marché (test 3 ci-dessous). Il vient de la forme de la loi jointe : les deux variables évoluent encore plus ensemble lors des mois extrêmes qu'une loi normale ne le prévoit, ce qui est typique des krachs où tout baisse en même temps.
+
+**3. Les résidus de la régression.** Une fois la régression de l'étape 4 estimée, ses résidus ne sont plus du tout corrélés aux facteurs (c'est une propriété des moindres carrés). Toute information mutuelle entre résidus et facteurs serait donc non linéaire.
+
+| | Apple | Portefeuille |
+|---|---:|---:|
+| Couples résidus-facteur significatifs à 5 % | 0 sur 6 | 2 sur 6 (HML et Mom, p ≈ 0,01) |
+| Significatifs après correction des tests multiples (seuil $0{,}05/12$) | 0 | 0 |
+| R² ajusté, modèle linéaire | 35,8 % | 93,8 % |
+| R² ajusté, en ajoutant les carrés des six facteurs | 36,0 % | 93,8 % |
+| p-valeur du test joint des six carrés (Wald, Newey-West) | 0,08 | 0,18 |
+
+- Ajouter les carrés des facteurs à la régression **ne change pratiquement rien** : +0,2 point de R² ajusté pour Apple, rien pour le portefeuille, et les carrés ne sont pas significatifs ensemble.
+- Les deux signaux résiduels du portefeuille ne résistent pas à la correction des tests multiples. Faire 12 tests au seuil de 5 % produit en moyenne 0,6 faux positif. Ils traduisent en plus une dépendance de la **dispersion** et non du niveau : les écarts au modèle sont plus grands les mois où HML bouge fortement (corrélation de rang de 0,24 entre $|\text{HML}|$ et $|\hat\varepsilon|$). Cela ne permettrait pas de mieux expliquer le rendement.
+
+### 5.6 À retenir de l'étape 5
+
+- **Pour expliquer les rendements par les facteurs, la lecture non linéaire n'apporte rien de mesurable ici.** L'information mutuelle ne trouve aucun lien que Pearson aurait manqué, et ajouter des termes non linéaires à la régression n'améliore pas le R².
+- **Avec 320 mois, l'information mutuelle est beaucoup moins puissante.** Elle ne juge significatif qu'un lien d'une force équivalente à $\rho > 0{,}31$, contre $0{,}11$ pour Pearson. Elle passe à côté de liens linéaires faibles, mais bien réels, comme ceux de SMB ou RMW.
+- **Elle reste utile comme diagnostic.** Elle confirme que le modèle linéaire suffit, et elle signale ce que la corrélation ne voit pas. Le marché et le portefeuille chutent ensemble plus souvent qu'une loi normale ne le prévoit, et la dispersion des écarts au modèle varie avec les facteurs. Ces deux points concernent le **risque**, pas le rendement moyen.
+
 ## Références
 
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
@@ -400,6 +501,8 @@ On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipond�
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
+- Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
+- Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
