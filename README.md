@@ -73,83 +73,47 @@ Point clé : **les facteurs sont des rendements, pas des caractéristiques brute
 - Le membre de gauche, $R_i$, peut en revanche être n'importe quoi : une action seule, un fonds, un portefeuille. Le modèle s'applique aussi à un titre seul, mais il l'explique mal ($R^2$ bien plus faible), car le terme spécifique $\varepsilon_i$ y pèse lourd. Sur un portefeuille diversifié, $\varepsilon$ se compense et le $R^2$ devient très élevé.
 - Le risque spécifique $\varepsilon_i$ n'est pas rémunéré : il se diversifie gratuitement. Seule l'exposition aux facteurs donne droit à une prime.
 
-### 2.5 Construction des facteurs (bibliothèque de Kenneth French, États-Unis)
+### 2.5 Comment Fama et French calculent les facteurs
 
-**Règles communes**
+Les facteurs ne sont pas calculés sur notre portefeuille. Fama et French les calculent sur l'ensemble des actions américaines (NYSE, AMEX, NASDAQ, environ 4 000 titres) et publient chaque mois leur rendement sur le site de Kenneth French. On télécharge ces séries telles quelles.
 
-- Univers : actions ordinaires cotées au NYSE, AMEX et NASDAQ (données CRSP et Compustat).
-- Seuils de tri calculés **sur les seules actions du NYSE**, pour que les milliers de micro-capitalisations du NASDAQ ne déplacent pas les seuils.
-- Les portefeuilles sont formés **fin juin de chaque année $t$**, conservés de juillet $t$ à juin $t+1$, et pondérés par la capitalisation. Les données comptables viennent de l'exercice clos en $t-1$, donc publiées avant la formation.
-- Tri double : taille (Small / Big, coupure à la médiane NYSE) × caractéristique (coupures aux 30ᵉ et 70ᵉ centiles NYSE). On obtient 2 × 3 = 6 portefeuilles. Le facteur moyenne les petites et les grandes capitalisations, pour neutraliser l'effet taille.
-- Résultat : des rendements mensuels, en %.
+**La recette, identique pour tous les facteurs**
 
-**MKT (marché)**
+1. On prend toutes les actions américaines.
+2. On mesure pour chacune une caractéristique (sa taille, son prix par rapport à sa valeur comptable, sa rentabilité...).
+3. On les classe selon cette caractéristique et on forme deux groupes : les 30 % du haut et les 30 % du bas. Les 40 % du milieu ne servent pas.
+4. Le facteur du mois = rendement moyen d'un groupe − rendement moyen de l'autre.
 
-- Calcul : rendement pondéré par la capitalisation de toutes les actions de l'univers, moins le taux du T-Bill à 1 mois.
-- Économie : c'est la prime de risque actions. Les actions perdent dans les récessions, au moment où l'épargne compte le plus ; ce risque ne se diversifie pas, il est donc rémunéré.
+Un facteur est donc le résultat d'un pari « j'achète un groupe, je vends l'autre ». Par exemple, si en mars les actions bon marché gagnent 2 % et les actions chères 0,5 %, le facteur value vaut +1,5 % en mars.
 
-**SMB (Small Minus Big, taille)**
+Trois précisions :
 
-- Calcul : rendement moyen des petites capitalisations moins celui des grandes. Dans le modèle à 5 facteurs, c'est la moyenne de trois versions (taille croisée avec value, rentabilité et investissement) :
+- **Les groupes sont refaits une fois par an, fin juin**, avec les comptes de l'année précédente (déjà publiés à cette date). Seul le momentum est refait chaque mois.
+- **Chaque action pèse selon sa capitalisation** dans le rendement de son groupe.
+- **Le tri est fait séparément chez les petites et chez les grandes entreprises**, puis on fait la moyenne des deux. Sinon, le facteur value serait en partie un pari sur la taille, car les actions bon marché sont souvent des petites entreprises. La frontière entre « petite » et « grande » est la médiane des capitalisations du NYSE.
 
-$$
-\mathrm{SMB} = \tfrac{1}{3}\left(\mathrm{SMB}_{B/M} + \mathrm{SMB}_{OP} + \mathrm{SMB}_{INV}\right), \qquad \mathrm{SMB}_{B/M} = \tfrac{1}{3}(SH + SN + SL) - \tfrac{1}{3}(BH + BN + BL)
-$$
+**Les six facteurs**
 
-- Économie : les petites entreprises sont plus fragiles (accès au crédit, sensibilité aux récessions) et moins liquides. Les investisseurs demandent une prime pour porter ce risque. Cette prime est faible depuis les années 1980.
+| Facteur | Groupe acheté | Groupe vendu | Critère de tri |
+|---|---|---|---|
+| MKT (marché) | tout le marché | placement sans risque | aucun |
+| SMB (taille) | petites entreprises | grandes entreprises | capitalisation boursière |
+| HML (value) | actions bon marché | actions chères | fonds propres comptables / capitalisation |
+| RMW (rentabilité) | entreprises très rentables | entreprises peu rentables | bénéfice d'exploitation / fonds propres |
+| CMA (investissement) | entreprises qui investissent peu | entreprises qui investissent beaucoup | croissance du total de l'actif sur un an |
+| MOM (momentum) | actions qui ont le plus monté | actions qui ont le plus baissé | rendement des 12 derniers mois, sans le dernier |
 
-**HML (High Minus Low, value)**
+**MKT, le marché.** Rendement de toutes les actions américaines moins le taux d'un bon du Trésor à un mois. Pourquoi ça rapporte : les actions chutent pendant les récessions, au pire moment pour l'épargnant. Ce risque ne disparaît pas en diversifiant, donc il est rémunéré.
 
-- Caractéristique de tri : $B/M$ = fonds propres comptables de l'exercice $t-1$ / capitalisation fin décembre $t-1$.
+**SMB, la taille.** On sépare les entreprises en deux selon leur capitalisation : petites d'un côté, grandes de l'autre. SMB = rendement des petites − rendement des grandes. Pourquoi ça rapporte : les petites entreprises sont plus fragiles en période de crise et leurs actions s'échangent moins facilement. Les investisseurs demandent un surplus de rendement pour les détenir. Cet effet est faible depuis les années 1980.
 
-$$
-\mathrm{HML} = \tfrac{1}{2}(SH + BH) - \tfrac{1}{2}(SL + BL)
-$$
+**HML, la value.** Pour chaque entreprise, on divise ses fonds propres comptables (ce que vaut l'entreprise dans ses comptes) par sa capitalisation (ce qu'en dit la Bourse). Un ratio élevé signale une action bon marché, un ratio faible une action chère. HML = rendement des 30 % les moins chères − rendement des 30 % les plus chères. Pourquoi ça rapporte : les entreprises bon marché sont souvent en difficulté et souffrent plus quand l'économie se retourne, c'est un risque. Autre lecture : les investisseurs s'emballent pour les entreprises en forte croissance et les paient trop cher.
 
-  $H$ = 30 % de $B/M$ les plus élevés (actions bon marché), $L$ = 30 % les plus bas (actions chères, « growth »).
-- Économie : explication par le risque, les entreprises value sont souvent en difficulté, avec des actifs lourds difficiles à réduire quand l'économie se retourne ; elles souffrent le plus dans les mauvais états du monde. Explication comportementale, les investisseurs extrapolent trop la croissance passée, surpaient les « growth » et délaissent les value (Lakonishok, Shleifer et Vishny, 1994).
+**RMW, la rentabilité.** Pour chaque entreprise, on calcule son bénéfice d'exploitation (chiffre d'affaires moins coûts de production, frais généraux et intérêts) divisé par ses fonds propres. RMW = rendement des entreprises les plus rentables − rendement des moins rentables. Pourquoi ça rapporte : à prix égal, une entreprise plus rentable produit plus de bénéfices pour ses actionnaires. Le marché semble sous-estimer combien cette rentabilité dure dans le temps.
 
-**RMW (Robust Minus Weak, rentabilité)**
+**CMA, l'investissement.** Pour chaque entreprise, on regarde de combien son total de l'actif a augmenté sur la dernière année. Une forte hausse veut dire qu'elle investit beaucoup (usines, rachats d'entreprises...). CMA = rendement des entreprises qui investissent peu − rendement de celles qui investissent beaucoup. Pourquoi ça rapporte : une entreprise investit beaucoup quand l'argent lui coûte peu, c'est-à-dire quand ses actionnaires attendent un rendement faible. Les dirigeants ont aussi tendance à surinvestir, et le marché paie trop cher ces projets.
 
-- Caractéristique de tri : rentabilité opérationnelle de l'exercice $t-1$,
-
-$$
-OP = \frac{\text{chiffre d'affaires} - \text{coût des ventes} - \text{frais généraux (SG\&A)} - \text{charges d'intérêts}}{\text{fonds propres comptables}}
-$$
-
-$$
-\mathrm{RMW} = \tfrac{1}{2}(SR + BR) - \tfrac{1}{2}(SW + BW)
-$$
-
-  $R$ = rentabilité forte (30 % du haut), $W$ = faible (30 % du bas).
-- Économie : d'après la formule de 2.2, à prix égal, une entreprise plus rentable génère plus de flux pour l'actionnaire, donc offre un rendement attendu plus élevé. Côté comportemental, le marché sous-estime la persistance de la rentabilité (Novy-Marx, 2013). C'est le cœur du facteur « qualité ».
-
-**CMA (Conservative Minus Aggressive, investissement)**
-
-- Caractéristique de tri : croissance du total de l'actif entre les exercices $t-2$ et $t-1$,
-
-$$
-INV = \frac{TA_{t-1} - TA_{t-2}}{TA_{t-2}}
-$$
-
-$$
-\mathrm{CMA} = \tfrac{1}{2}(SC + BC) - \tfrac{1}{2}(SA + BA)
-$$
-
-  $C$ = investissement faible (30 % du bas), $A$ = agressif (30 % du haut).
-- Économie : une entreprise investit beaucoup quand son coût du capital est bas, c'est-à-dire quand le rendement attendu par ses actionnaires est faible (théorie du $q$ : Cochrane, 1991 ; Hou, Xue et Zhang, 2015). Côté comportemental, les dirigeants qui investissent beaucoup ont tendance à surinvestir (« empire building »), ce que le marché paie trop cher.
-
-**MOM (momentum, ou UMD : Up Minus Down)**
-
-- Caractéristique de tri : rendement cumulé de $t-12$ à $t-2$. Le dernier mois est exclu, car il présente un effet de retournement à court terme (liquidité, fourchette achat-vente).
-- Différence avec les autres facteurs : les portefeuilles sont **reformés chaque mois**, pas chaque année.
-
-$$
-\mathrm{MOM} = \tfrac{1}{2}(S\,\mathrm{High} + B\,\mathrm{High}) - \tfrac{1}{2}(S\,\mathrm{Low} + B\,\mathrm{Low})
-$$
-
-  High = 30 % des meilleurs rendements passés, Low = 30 % des pires.
-- Économie : l'explication est surtout comportementale. L'information se diffuse lentement et les investisseurs sous-réagissent aux nouvelles, puis suivent la tendance (Hong et Stein, 1999). Aucune explication par le risque ne fait consensus. Au sens de Roncalli (2017), c'est une **anomalie** plutôt qu'une prime de risque pure, avec des krachs brutaux lors des rebonds de marché (2009 : Daniel et Moskowitz, 2016).
+**MOM, le momentum.** Pour chaque action, on calcule son rendement sur les 12 derniers mois, en excluant le dernier mois (une action qui a beaucoup monté le mois dernier a tendance à rebaisser un peu juste après, effet de très court terme qu'on veut écarter). MOM = rendement des 30 % qui ont le plus monté − rendement des 30 % qui ont le plus baissé. Les groupes sont refaits chaque mois. Pourquoi ça rapporte : les investisseurs réagissent lentement aux nouvelles, donc les tendances se prolongent quelques mois. Ce n'est pas vraiment une prime de risque mais plutôt une anomalie de comportement (Roncalli, 2017). Elle peut s'effondrer brutalement quand le marché repart d'un coup, comme en 2009 (Daniel et Moskowitz, 2016).
 
 ## Références
 
