@@ -736,7 +736,7 @@ $$\mathrm{RC}_1 = \mathrm{RC}_2 = \dots = \mathrm{RC}_K = \frac{\sigma_p}{K}$$
 | Poids ERC | 18 % | 27 % | **55 %** |
 | Part du risque | 33 % | 33 % | 33 % |
 
-  La volatilité du portefeuille baisse de 6,2 % à 4,7 % par an.
+La volatilité du portefeuille baisse de 6,2 % à 4,7 % par an.
 - **Cas réel, des facteurs corrélés** : il n'y a plus de formule fermée et on résout numériquement. L'intuition reste la même. Deux facteurs qui se ressemblent se **partagent** un budget de risque. Avec trois facteurs de même volatilité, dont deux corrélés à 0,7 comme HML et CMA, l'ERC donne 40 % au facteur isolé et 30 % à chacun des deux autres. L'équipondération, elle, laisserait 77 % du risque à la paire corrélée.
 - **Pourquoi c'est cohérent avec le projet** :
   - l'ERC n'utilise **que les volatilités et les corrélations**, ce qu'on sait estimer, et **aucun rendement espéré**, ce qu'on ne sait pas prévoir (étape 1) ;
