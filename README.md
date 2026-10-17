@@ -600,6 +600,182 @@ Laisser les bêtas changer améliore l'explication, mais peu : l'essentiel du li
 - **Une bonne partie de la variation apparente n'est que du bruit.** Sur 36 mois, un bêta glissant peut bouger beaucoup sans que le vrai bêta change. Il faut donc tester avant de conclure, d'autant qu'on fait ici de nombreux tests.
 - **Pour la partie allocation à venir** : les expositions doivent être ré-estimées régulièrement plutôt que fixées une fois pour toutes. Comme leurs variations sont lentes et en partie dues au bruit, il vaut mieux ne pas réagir à chaque mouvement de court terme.
 
+## Étape 7 : comment fonctionne l'allocation par facteurs ?
+
+Les étapes 2 à 6 ont décrit les facteurs et montré ce qu'ils expliquent. On passe maintenant à la gestion de portefeuille : comment investir **à travers** les facteurs. Cette étape ne contient pas de code. Elle explique la méthode qui sera ensuite reproduite et testée.
+
+### 7.1 Ce que les étapes précédentes nous apprennent
+
+- **Un portefeuille diversifié, c'est un panier de facteurs** (étape 4) : 94 % de sa variance vient des six facteurs. Gérer un portefeuille diversifié revient donc à choisir combien de risque on prend sur chaque facteur.
+- **Les rendements futurs des facteurs ne se prévoient pas, leur risque si** (étape 1). Une allocation solide doit reposer sur le risque, pas sur des paris de rendement.
+- **Les facteurs ont des risques très différents** (étape 3) : le marché et le momentum ont une volatilité de 15 % par an, CMA et RMW de 7 à 8 %. Leurs volatilités et leurs corrélations changent dans le temps.
+- **Certains facteurs se ressemblent** (étape 3) : HML et CMA sont corrélés à 0,68. Les autres le sont peu, donc les combiner diversifie vraiment.
+- **Les expositions bougent lentement** (étape 6) : il faut ré-estimer et rééquilibrer régulièrement, sans réagir à chaque mouvement de court terme.
+
+### 7.2 Le principe : une allocation à deux étages
+
+Investir par facteurs, c'est répondre à deux questions, dans cet ordre :
+
+1. **Étage 1, construire chaque facteur.** Quelles actions acheter pour être exposé à la value, au momentum, à la qualité... ? C'est le rôle des **z-scores**.
+2. **Étage 2, répartir entre les facteurs.** Combien mettre dans chaque facteur ? C'est le rôle de l'**équipondération** ou de l'**ERC**.
+
+Une analogie : l'étage 1 compose six équipes, une par facteur, en choisissant les meilleurs joueurs pour chaque poste. L'étage 2 décide du temps de jeu de chaque équipe.
+
+C'est la démarche décrite par Roncalli (2017) et appliquée dans la gamme Dynamic Multi Factors d'Amundi (étape 1). Les primes de risque sont d'abord construites une par une. Elles sont ensuite assemblées en répartissant le **risque**, et non le capital.
+
+### 7.3 Étage 1 : construire un facteur avec les z-scores
+
+#### Quelles actions ?
+
+On part d'un **univers d'investissement**, c'est-à-dire la liste des actions dans lesquelles on s'autorise à investir. On le choisit selon trois critères :
+
+- **Être investissable** : seules les actions assez grandes et assez échangées pour être achetées sans faire bouger le prix. En pratique, ce sont les grandes et moyennes capitalisations d'un indice large (S&P 500, Russell 1000, MSCI USA).
+- **Avoir les données** : il faut le cours et les comptes de l'entreprise (fonds propres, bénéfices, actifs) pour mesurer chaque caractéristique.
+- **Être assez nombreuses** : il faut des centaines de titres pour que chaque facteur soit lui-même diversifié. L'étape 4 l'a montré : en dessous de 30 actions, le risque propre des titres pèse encore lourd.
+
+#### Quelle caractéristique pour chaque facteur ?
+
+On mesure, pour chaque action, la caractéristique que la prime rémunère. Ce sont les mêmes mesures qu'à l'étape 2.5 :
+
+| Facteur | Caractéristique mesurée | On préfère les actions... |
+|---|---|---|
+| Taille (SMB) | capitalisation boursière | les plus **petites** |
+| Value (HML) | fonds propres / capitalisation | les moins chères en bourse par rapport à leurs **fonds propres** |
+| Rentabilité (RMW) | bénéfice d'exploitation / fonds propres | les plus **rentables** |
+| Investissement (CMA) | croissance de l'actif sur un an | celles qui investissent **le moins** |
+| Momentum (Mom) | rendement des 12 derniers mois, sans le dernier | celles qui ont **le plus monté** |
+
+Le marché n'a pas de z-score : il correspond à toutes les actions, pondérées par leur capitalisation.
+
+#### Calculer le z-score
+
+Ces caractéristiques ne sont pas comparables entre elles : un ratio de 0,8, une croissance d'actif de 12 % et une hausse de 30 % ne se lisent pas sur la même échelle. Le z-score les met toutes sur une échelle commune. Il mesure **de combien d'écarts-types une action s'écarte de la moyenne des autres actions, à la même date** :
+
+$$z_i = \frac{x_i - \bar x}{\sigma_x}$$
+
+- $x_i$ est la caractéristique de l'action $i$.
+- $\bar x$ et $\sigma_x$ sont la moyenne et l'écart-type de cette caractéristique **sur toutes les actions de l'univers, au même mois**. On compare les actions entre elles à un instant donné, pas une action à son propre passé.
+- On met le signe pour que **plus haut = plus désirable**. Pour l'investissement ou la taille, où l'on préfère les petites valeurs, on prend $-z$.
+
+**Exemple** avec cinq actions et le ratio fonds propres / capitalisation (facteur value) :
+
+| Action | Ratio $x_i$ | $x_i - \bar x$ | z-score |
+|---|---:|---:|---:|
+| A | 0,20 | −0,40 | −1,05 |
+| B | 0,40 | −0,20 | −0,53 |
+| C | 0,50 | −0,10 | −0,26 |
+| D | 0,70 | +0,10 | +0,26 |
+| E | 1,20 | +0,60 | +1,58 |
+
+Moyenne $\bar x = 0{,}60$, écart-type $\sigma_x = 0{,}38$. L'action E est la plus « value » : son ratio est 1,58 écart-type au-dessus de la moyenne. L'action A est la plus « croissance ».
+
+**Le lien avec Fama et French.** À l'étape 2.5, Fama et French classent les actions en groupes : les 30 % les moins chères, les 30 % les plus chères. Ce classement n'utilise que le **rang** de l'action. Le z-score va plus loin : il dit aussi **à quelle distance** l'action est des autres. Une action « très value » pèse alors plus qu'une action « un peu value ».
+
+#### Nettoyer avant de classer
+
+- **Écrêter les extrêmes** : une seule valeur aberrante (une donnée comptable erronée, une entreprise en faillite) gonfle l'écart-type et écrase tous les autres scores. On plafonne donc les z-scores, souvent à ±3.
+- **Comparer à l'intérieur de chaque secteur** : une banque a presque toujours un ratio fonds propres / capitalisation plus élevé qu'une entreprise de logiciels. Sans précaution, le facteur value deviendrait un pari « banques contre technologie ». On calcule donc souvent le z-score au sein de chaque secteur (moyenne et écart-type du secteur), pour comparer une banque aux autres banques.
+- **Combiner plusieurs mesures** : un seul ratio est fragile. Pour la value, on fait souvent la moyenne des z-scores de plusieurs ratios (fonds propres, bénéfices, flux de trésorerie, chacun rapporté à la capitalisation), puis on re-standardise.
+
+#### Quelles actions privilégier, et pourquoi ?
+
+- **On classe les actions par z-score décroissant et on privilégie les plus élevés.** Un z-score élevé signifie que l'action porte fortement la caractéristique rémunérée par la prime (étape 2). C'est elle qui donnera au portefeuille la plus forte exposition au facteur.
+- **Version long-only**, celle des fonds : on achète par exemple les 20 à 30 % d'actions au meilleur score.
+- **Version long-short**, celle de Fama et French : on achète les meilleurs scores et on vend à découvert les moins bons. Le rendement du facteur est l'écart entre les deux paniers.
+- **Pondérer à l'intérieur du facteur**, trois choix courants :
+  - poids égaux entre les actions retenues : simple, mais favorise les petites capitalisations ;
+  - poids proportionnels à la capitalisation : facile à investir, mais concentré sur quelques géants ;
+  - poids inclinés par le score, par exemple $w_i \propto \text{capitalisation}_i \times (1 + z_i)$ : l'action garde sa taille de départ, augmentée si son score est bon.
+- **Limiter la rotation** : on rééquilibre à date fixe (chaque année pour les ratios comptables, chaque mois pour le momentum). On ne vend une action que si son score est nettement retombé, par exemple sous les 40 % meilleurs alors qu'on l'avait achetée dans les 20 % meilleurs. Cette zone tampon évite d'acheter et de revendre une action pour une variation de score infime, ce qui coûte en frais.
+
+#### Assembler plusieurs facteurs : deux voies
+
+- **Voie « mix »** : on construit un portefeuille par facteur, puis on les assemble. On contrôle ainsi exactement le poids et le risque de chaque facteur. C'est cette voie qui permet l'étage 2.
+- **Voie « intégrée »** : on calcule pour chaque action un score global, moyenne de ses z-scores, puis on sélectionne les meilleures. Une action moyenne partout mais sans défaut peut y battre une action excellente sur un facteur et très mauvaise sur un autre. Le portefeuille est plus compact, mais le risque pris sur chaque facteur est moins lisible.
+
+### 7.4 Étage 2 : répartir entre les facteurs
+
+À cet étage, chaque facteur est une série de rendements mensuels, comme celles de la base de l'étape 3. Il reste à choisir les poids $w_1, \dots, w_K$ des $K$ facteurs.
+
+#### Méthode 1 : l'équipondération
+
+- **Le principe** : chaque facteur reçoit le même capital, $w_k = 1/K$. Avec six facteurs, 16,7 % chacun.
+- **Les avantages** : aucune estimation, donc aucune erreur d'estimation. Elle est robuste et difficile à battre, et sert de point de référence.
+- **Le défaut** : même capital ne veut pas dire même risque. Le facteur le plus volatil domine le risque du portefeuille.
+
+#### Mesurer la part de risque de chaque facteur
+
+La volatilité du portefeuille vaut $\sigma_p = \sqrt{w^\top \Sigma\, w}$, où $\Sigma$ est la matrice de covariance des facteurs. La **contribution au risque** du facteur $k$ est :
+
+$$\mathrm{RC}_k = w_k \times \frac{\partial \sigma_p}{\partial w_k} = w_k \, \frac{(\Sigma w)_k}{\sigma_p}$$
+
+- $\partial \sigma_p / \partial w_k$ est le **risque marginal** : de combien la volatilité du portefeuille augmente si l'on ajoute un peu du facteur $k$.
+- On le multiplie par le poids : la contribution, c'est « combien j'en ai » fois « combien chaque unité ajoute de risque ».
+- **Les contributions s'additionnent exactement** : $\sum_k \mathrm{RC}_k = \sigma_p$. On peut donc dire « le facteur $k$ représente 40 % du risque du portefeuille ».
+- Le risque marginal dépend des corrélations, via $(\Sigma w)_k$ : un facteur corrélé aux autres ajoute plus de risque qu'un facteur indépendant de même volatilité.
+
+**Exemple** : trois facteurs indépendants, de volatilités 15 %, 10 % et 5 %, en équipondération.
+
+| | Facteur A (15 %) | Facteur B (10 %) | Facteur C (5 %) |
+|---|---:|---:|---:|
+| Poids | 33 % | 33 % | 33 % |
+| Part du risque | **64 %** | 29 % | 7 % |
+
+Le portefeuille est diversifié en capital, mais pas en risque : le facteur A fait presque les deux tiers du risque. Avec les vrais facteurs, ce rôle revient au marché et au momentum, les deux plus volatils (étape 3).
+
+#### Méthode 2 : l'ERC (Equal Risk Contribution)
+
+- **Le principe** : on cherche les poids pour lesquels chaque facteur apporte **la même part du risque** :
+
+$$\mathrm{RC}_1 = \mathrm{RC}_2 = \dots = \mathrm{RC}_K = \frac{\sigma_p}{K}$$
+
+- **Cas simple, des facteurs indépendants** : la solution est $w_k \propto 1/\sigma_k$. Un facteur deux fois plus volatil reçoit deux fois moins de poids.
+
+| | Facteur A (15 %) | Facteur B (10 %) | Facteur C (5 %) |
+|---|---:|---:|---:|
+| Poids ERC | 18 % | 27 % | **55 %** |
+| Part du risque | 33 % | 33 % | 33 % |
+
+  La volatilité du portefeuille baisse de 6,2 % à 4,7 % par an.
+- **Cas réel, des facteurs corrélés** : il n'y a plus de formule fermée et on résout numériquement. L'intuition reste la même. Deux facteurs qui se ressemblent se **partagent** un budget de risque. Avec trois facteurs de même volatilité, dont deux corrélés à 0,7 comme HML et CMA, l'ERC donne 40 % au facteur isolé et 30 % à chacun des deux autres. L'équipondération, elle, laisserait 77 % du risque à la paire corrélée.
+- **Pourquoi c'est cohérent avec le projet** :
+  - l'ERC n'utilise **que les volatilités et les corrélations**, ce qu'on sait estimer, et **aucun rendement espéré**, ce qu'on ne sait pas prévoir (étape 1) ;
+  - Maillard, Roncalli et Teïletche (2010) montrent que sa volatilité est toujours comprise entre celle du portefeuille de variance minimale et celle du portefeuille équipondéré ;
+  - elle évite les portefeuilles concentrés de l'optimisation moyenne-variance. Roncalli (2017) la décrit comme un portefeuille moyenne-variance « très régularisé » (étape 1).
+- **Ses limites** :
+  - elle dépend de l'estimation de $\Sigma$ ;
+  - elle donne beaucoup de poids aux facteurs peu volatils, ce qui peut demander du levier pour atteindre un niveau de risque donné ;
+  - les corrélations montent souvent en crise, et la diversification promise s'affaiblit au moment où on en a le plus besoin.
+
+#### Mettre l'ERC en œuvre, mois après mois
+
+1. À la fin de chaque mois, on prend les rendements des facteurs sur une fenêtre passée, par exemple les 36 ou 60 derniers mois.
+2. On estime la matrice de covariance $\Sigma$ à partir de ces seules données passées.
+3. On calcule les poids ERC.
+4. On les applique pendant le mois suivant, puis on recommence.
+
+Les volatilités varient d'un facteur trois à six dans le temps (étape 3) et les expositions bougent lentement (étape 6). Ré-estimer $\Sigma$ chaque mois permet à l'allocation de suivre ces changements. Les frais de transaction pénalisent en revanche les rééquilibrages trop fréquents ou trop brusques.
+
+### 7.5 Équipondération ou ERC : la comparaison
+
+| | Équipondération | ERC |
+|---|---|---|
+| Ce qui est égal entre facteurs | le capital | la part du risque |
+| Données nécessaires | aucune | volatilités et corrélations |
+| Prévision de rendement | aucune | aucune |
+| Facteur très volatil | domine le risque | voit son poids réduit |
+| Facteurs corrélés | comptés deux fois | se partagent un budget de risque |
+| Risque d'erreur d'estimation | nul | modéré (covariances seulement) |
+| Rotation du portefeuille | faible | plus forte (les poids suivent le risque) |
+
+### 7.6 À retenir de l'étape 7
+
+- **L'allocation par facteurs se fait en deux étages** : construire chaque facteur à partir d'actions, puis répartir le portefeuille entre les facteurs.
+- **Les z-scores servent à l'étage 1.** Ils mettent sur une même échelle des caractéristiques très différentes : chaque action est mesurée par rapport aux autres actions, au même mois et souvent dans son secteur. On privilégie les z-scores les plus élevés, car ce sont les actions les plus exposées à la caractéristique que la prime rémunère.
+- **L'équipondération partage le capital, l'ERC partage le risque.** Avec des facteurs de volatilités très différentes, ce n'est pas du tout la même chose : en équipondération, les facteurs les plus volatils dominent le risque.
+- **L'ERC n'a besoin d'aucune prévision de rendement.** C'est ce qui en fait la suite logique de l'étape 1 : on alloue avec ce qu'on sait estimer, le risque.
+- **Dans ce projet**, l'étage 1 est déjà fait par Fama et French : la base de l'étape 3 fournit directement les rendements des six facteurs. La suite porte donc sur l'étage 2, l'ERC entre facteurs, comparée à l'équipondération.
+
 ## Références
 
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
@@ -612,6 +788,7 @@ Laisser les bêtas changer améliore l'explication, mais peu : l'essentiel du li
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
 - Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
+- Maillard S., Roncalli T., Teïletche J. (2010), The Properties of Equally Weighted Risk Contribution Portfolios, *Journal of Portfolio Management*.
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
