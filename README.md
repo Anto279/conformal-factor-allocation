@@ -776,6 +776,128 @@ Les volatilités varient d'un facteur trois à six dans le temps (étape 3) et l
 - **L'ERC n'a besoin d'aucune prévision de rendement.** C'est ce qui en fait la suite logique de l'étape 1 : on alloue avec ce qu'on sait estimer, le risque.
 - **Dans ce projet**, l'étage 1 est déjà fait par Fama et French : la base de l'étape 3 fournit directement les rendements des six facteurs. La suite porte donc sur l'étage 2, l'ERC entre facteurs, comparée à l'équipondération.
 
+## Étape 8 : les z-scores des actions du S&P 500, mois par mois
+
+Les facteurs de Fama et French sont des séries toutes faites. Avant de passer à l'étage 2, on construit soi-même l'étage 1 sur des données réelles : pour chaque mois et chaque action de l'univers, les six z-scores de l'étape 7. Rien n'est encore combiné ni investi.
+
+Code et résultats : [`notebooks/etape8_zscores_actions.ipynb`](notebooks/etape8_zscores_actions.ipynb). Données : [`scripts/telecharger_donnees_sp500.py`](scripts/telecharger_donnees_sp500.py) et [`scripts/telecharger_predecesseurs_edgar.py`](scripts/telecharger_predecesseurs_edgar.py).
+
+### 8.1 L'univers et les sources
+
+- **Univers : les membres du S&P 500 à chaque date**, pas la liste d'aujourd'hui. Une entreprise sortie de l'indice en 2015 compte jusqu'en 2015 ; une entreprise entrée en 2020 compte à partir de 2020. Composition historique publique ([fja05680/sp500](https://github.com/fja05680/sp500)) : 847 entreprises passées dans l'indice entre décembre 2009 et août 2026.
+- **Pourquoi le S&P 500** : grandes capitalisations liquides, donc investissables (étape 7.3) ; même périmètre que les étapes 4 à 6 ; toutes déposent leurs comptes à la SEC.
+- **Cours** : cours mensuels de Yahoo Finance, ajustés des divisions d'actions (pour la capitalisation) et des dividendes (pour les rendements).
+- **Comptes** : base XBRL de la SEC (EDGAR). Chaque chiffre porte la date de clôture de l'exercice **et la date de publication du rapport**. À chaque fin de mois, on n'utilise que des chiffres déjà publiés.
+- **Une ligne par entreprise** : pour les entreprises à plusieurs catégories d'actions (Alphabet, Fox, News Corp, Under Armour), on garde une seule ligne, sinon elles compteraient deux fois dans la moyenne et l'écart-type.
+
+### 8.2 Le calcul des six caractéristiques
+
+| z-score | Caractéristique au mois $t$ | Sens |
+|---|---|---|
+| `z_mkt` | bêta sur les 60 derniers mois contre Mkt-RF (36 mois minimum) | + |
+| `z_smb` | log de la capitalisation boursière | − |
+| `z_hml` | fonds propres / capitalisation | + |
+| `z_rmw` | (résultat d'exploitation − charges d'intérêts) / fonds propres | + |
+| `z_cma` | croissance de l'actif total sur un exercice | − |
+| `z_mom` | rendement de $t-12$ à $t-1$ | + |
+
+- **Marché** : l'étape 7 notait que le marché n'a pas de caractéristique comptable. On mesure donc directement l'exposition, le bêta glissant :
+  $$\beta_{i,t} = \frac{\mathrm{Cov}(R_i - R_f,\ \mathrm{MKT})}{\mathrm{Var}(\mathrm{MKT})} \quad \text{sur les mois } t-59 \text{ à } t$$
+- **Capitalisation** : cours × nombre d'actions. Le nombre d'actions vient de la page de garde des rapports trimestriels et annuels. Comme les cours de Yahoo sont ajustés des divisions passées, on remet le nombre d'actions dans la même unité : $\text{Capi}_t = P_t \times N_s \times F(s)$, où $F(s)$ est le produit des divisions intervenues après la date $s$ du rapport.
+- **Fonds propres** : capitaux propres des actionnaires moins actions de préférence, au dernier exercice annuel publié.
+- **Rentabilité** : résultat d'exploitation moins charges d'intérêts, rapporté aux fonds propres. Les banques et les assurances n'ont pas de résultat d'exploitation : on prend leur résultat avant impôts (20 % des exercices).
+- **Investissement** : $\text{Actif}_N / \text{Actif}_{N-1} - 1$, sur deux bilans annuels successifs.
+- **Momentum** : rendement dividendes compris de la fin du mois $t-12$ à la fin du mois $t-1$. Le dernier mois est sauté, comme chez Fama et French.
+- **Chiffres périmés** : un chiffre comptable de plus de 18 mois (12 mois pour le nombre d'actions) n'est plus utilisé.
+
+Du chiffre au z-score, chaque mois, sur les membres de l'indice qui ont la caractéristique :
+
+1. écrêtage aux 1er et 99e centiles du mois ;
+2. $z_{i,t} = \pm (x_{i,t} - \bar x_t) / \sigma_t$, moyenne et écart-type du mois, à poids égaux ;
+3. plafond à ±3.
+
+Pas de neutralisation sectorielle à ce stade, comme chez Fama et French. Le code SIC de chaque entreprise est gardé dans la base pour pouvoir le faire ensuite.
+
+### 8.3 Les nettoyages nécessaires
+
+- **Tickers réattribués.** Un ticker peut changer de propriétaire : « BEAM » était Beam Inc. (spiritueux) jusqu'en 2014, c'est aujourd'hui Beam Therapeutics. La SEC et Yahoo rattachent le ticker à l'entreprise actuelle. Règle : un couple (mois, ticker) n'est gardé que si l'entreprise rattachée a déposé un rapport à la SEC dans les 15 mois précédents. Une entreprise qui n'existait pas encore n'a rien déposé et sort d'elle-même.
+- **Holdings créées après coup.** Exxon, Disney, BlackRock, Cigna, Apache et une douzaine d'autres publient aujourd'hui sous une nouvelle entité juridique, sans les comptes d'avant. On récupère les comptes de l'ancienne entité (17 entreprises).
+- **Erreurs d'unité.** Certaines entreprises publient de temps en temps leur nombre d'actions en milliers ou multiplié par 1 000 (PG&E, Garmin, ConocoPhillips, Huntington...). Un chiffre est écarté s'il diffère de plus d'un facteur 3 du dernier chiffre retenu, ou si la capitalisation qu'il implique sort de 1 à 8 000 milliards de dollars. Deux chiffres écartés de suite mais cohérents entre eux signalent un vrai changement (fusion payée en actions) et sont acceptés. Résultat : 1 617 chiffres écartés sur 68 359.
+
+### 8.4 Vérification : retrouve-t-on les facteurs de Fama et French ?
+
+Contrôle des calculs, pas une stratégie : chaque mois, on achète les 30 % d'actions au z-score le plus élevé, on vend les 30 % au plus bas (jambes pondérées par la capitalisation), et on compare le rendement du mois suivant au facteur de French.
+
+| Facteur | Corrélation avec French (174 mois) |
+|---|---:|
+| Mkt-RF (bêta élevé − bêta faible) | 0,60 |
+| SMB | 0,63 |
+| HML | 0,87 |
+| RMW | 0,53 |
+| CMA | 0,68 |
+| Mom | 0,88 |
+
+- **Value et momentum sont très bien reproduits** (0,87 et 0,88).
+- **Taille, investissement et rentabilité, moins bien**, et c'est attendu : French utilise toutes les actions américaines cotées, y compris des milliers de petites valeurs, alors qu'on reste parmi les 500 plus grandes. Pour la taille surtout, « petit » dans le S&P 500 veut dire 10 milliards de dollars.
+- **Pour le marché**, un portefeuille « bêta élevé − bêta faible » n'est pas le facteur marché, mais il est bien net acheteur de marché (0,60).
+- Les niveaux cumulés s'écartent (graphique) : le contrôle porte sur les variations mensuelles, pas sur la performance.
+
+![Vérification](docs/figures/zscores_verification_french.png)
+
+### 8.5 La base finale
+
+Fichier : `data/processed/zscores_sp500_mensuels.csv.gz`.
+
+- **Une ligne par (mois, action)** : 73 515 lignes, 598 entreprises, 175 mois de février 2012 à août 2026.
+- **Colonnes** : mois, ticker, code SIC et grand secteur, les six caractéristiques brutes (capitalisation, fonds propres / capitalisation, rentabilité, croissance de l'actif, momentum, bêta), puis les six z-scores.
+- **Taille** : 420 actions par mois en moyenne (337 au début, 500 à la fin). 85 % des lignes ont les six z-scores ; 359 actions par mois en moyenne.
+- **Début en 2012** : premier mois où au moins la moitié des membres ont leurs six z-scores. Les comptes XBRL n'existent que depuis 2009-2011 selon la taille de l'entreprise : avant, presque aucun z-score comptable n'est disponible.
+- **Moyenne 0, écart-type proche de 1** chaque mois, par construction. Moins de 2,5 % des valeurs touchent le plafond de ±3. `z_rmw` et `z_cma` sont plus asymétriques (écart-type 0,7 à 0,8 après plafond) : quelques entreprises ont des fonds propres minuscules après de gros rachats d'actions, ou une croissance d'actif énorme l'année d'une fusion.
+
+![Couverture](docs/figures/zscores_couverture.png)
+
+**Les z-scores se ressemblent peu.** Corrélation moyenne en coupe, mois par mois :
+
+![Corrélations entre z-scores](docs/figures/zscores_correlations.png)
+
+- La plus forte est value / rentabilité (−0,47) : les entreprises peu chères en bourse sont souvent les moins rentables.
+- Les autres restent sous 0,3 en valeur absolue : chaque z-score apporte une information différente.
+
+**Persistance.** Corrélation de rang entre le z-score d'une action au mois $t$ et au mois $t+h$ :
+
+| | 1 mois | 3 mois | 12 mois |
+|---|---:|---:|---:|
+| `z_mkt` | 0,99 | 0,98 | 0,92 |
+| `z_smb` | 1,00 | 0,99 | 0,96 |
+| `z_hml` | 0,99 | 0,98 | 0,93 |
+| `z_rmw` | 0,99 | 0,96 | 0,82 |
+| `z_cma` | 0,94 | 0,82 | 0,26 |
+| `z_mom` | 0,90 | 0,70 | −0,02 |
+
+- Taille, value, bêta et rentabilité changent lentement : un rééquilibrage annuel suffit pour ces facteurs.
+- Le momentum se renouvelle complètement en un an, l'investissement presque : ce sont les facteurs les plus coûteux en rotation (étape 7.3).
+
+**Exemple : Apple.** Plus grosse capitalisation de l'indice, donc `z_smb` au plafond de −3. Action « chère » (`z_hml` négatif) mais très rentable : `z_rmw` monte jusqu'au plafond de +3 à partir de 2022, ses fonds propres ayant fondu sous l'effet des rachats d'actions. Cela confirme la lecture de l'étape 6.
+
+![Apple](docs/figures/zscores_apple.png)
+
+### 8.6 Les limites
+
+- **Biais du survivant, la principale.** 206 des 847 entreprises passées dans l'indice n'ont plus de cours sur Yahoo Finance (rachetées, fusionnées ou faillies : Aetna, Celgene, Time Warner, Xilinx...). Elles manquent à la base, ce qui explique l'essentiel de l'écart entre les membres et les actions couvertes sur le graphique de couverture. Ce sont surtout des entreprises sorties de l'indice tôt, d'où une couverture plus faible au début (57 % en 2012 contre 88 % en 2026). Une base professionnelle (CRSP, Compustat) corrigerait ce point.
+- **Historique court.** XBRL n'existe que depuis 2009, contre 1963 pour les facteurs de French. Avec 14 ans de z-scores, l'étage 1 maison ne pourra pas être testé sur plusieurs cycles.
+- **Fonds propres simplifiés.** Fama et French ajoutent les impôts différés, rarement publiés à part dans XBRL : ils ne sont pas réintégrés.
+- **Rentabilité approchée.** Résultat d'exploitation au lieu du détail chiffre d'affaires − coûts ; résultat avant impôts pour les banques et assurances.
+- **Secteur actuel seulement.** Le code SIC est celui d'aujourd'hui, pas celui de chaque date.
+- **Capitalisation mensuelle.** Fama et French mesurent la taille une fois par an, en juin ; ici elle est mise à jour chaque mois.
+- **Plusieurs catégories d'actions.** Une seule ligne est gardée par entreprise. Le nombre d'actions publié peut ne couvrir qu'une des catégories : Berkshire Hathaway, dont les deux actions ont des prix très différents, n'a pas de capitalisation fiable et sort des z-scores de taille et de value.
+- **Ajustements de Yahoo.** Yahoo traite certaines scissions d'entreprise comme des divisions d'actions (Agilent en 2014). L'effet est neutre sur la capitalisation, puisque cours et nombre d'actions sont ajustés du même ratio, mais il reste une source d'erreur possible.
+
+### 8.7 À retenir de l'étape 8
+
+- **L'étage 1 est construit sur données réelles** : six z-scores par action et par mois, pour les membres du S&P 500 de 2012 à 2026, en n'utilisant à chaque date que des comptes déjà publiés.
+- **Les calculs sont validés** : les facteurs reconstruits suivent ceux de Fama et French (corrélation de 0,87 à 0,88 pour la value et le momentum, de 0,53 à 0,68 pour les autres), avec des écarts qui s'expliquent par un univers limité aux grandes capitalisations.
+- **La donnée est la vraie difficulté** : tickers réattribués, holdings sans historique, erreurs d'unité dans les comptes, entreprises disparues. La limite qui reste, le biais du survivant, est connue et mesurée.
+
 ## Références
 
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
