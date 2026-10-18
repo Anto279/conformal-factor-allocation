@@ -898,8 +898,124 @@ Fichier : `data/processed/zscores_sp500_mensuels.csv.gz`.
 - **Les calculs sont validés** : les facteurs reconstruits suivent ceux de Fama et French (corrélation de 0,87 à 0,88 pour la value et le momentum, de 0,53 à 0,68 pour les autres), avec des écarts qui s'expliquent par un univers limité aux grandes capitalisations.
 - **La donnée est la vraie difficulté** : tickers réattribués, holdings sans historique, erreurs d'unité dans les comptes, entreprises disparues. La limite qui reste, le biais du survivant, est connue et mesurée.
 
+## Étape 9 : étage 2, l'allocation par facteurs bat-elle le S&P 500 ?
+
+On passe des z-scores de l'étape 8 à un vrai portefeuille, puis on le backteste avec des frais. Code et résultats : [`notebooks/etape9_allocation_backtest.ipynb`](notebooks/etape9_allocation_backtest.ipynb).
+
+### 9.1 Les choix de départ
+
+- **Long-only.** L'univers est le S&P 500, choisi pour être investissable, et le long-only est la version des fonds multi-facteurs (étape 7.3). Pas de vente à découvert, donc pas de coût d'emprunt de titres. Le portefeuille reste exposé au marché : les facteurs servent à **choisir et pondérer** les actions.
+- **Cinq facteurs dans le score : SMB, HML, RMW, CMA, Mom.** Le bêta (`z_mkt`) n'y entre pas. Le portefeuille est déjà exposé au marché, et favoriser les actions à bêta élevé n'a pas été rémunéré (Frazzini et Pedersen, 2014).
+- **Période** : mars 2012 à août 2026, 174 mois.
+
+### 9.2 Le score final de chaque action
+
+$$S_{i,t} = \sum_k w_{k,t}\, z_{i,k,t}, \qquad \sum_k w_{k,t} = 1$$
+
+puis $S$ est re-standardisé chaque mois (moyenne 0, écart-type 1).
+
+- **Équipondéré** : chaque facteur pèse 20 %.
+- **ERC** : chaque facteur apporte la même part du risque. Le calcul se fait sur la volatilité et les corrélations des facteurs de Fama et French des 60 mois précédents. En moyenne : RMW 30 %, SMB 23 %, CMA 18 %, Mom 17 %, HML 13 %. RMW, le facteur le plus calme, pèse le plus.
+- Une action doit avoir au moins 3 z-scores sur 5 ; un z-score manquant compte pour 0.
+- Les deux scores se ressemblent beaucoup : corrélation de 0,92.
+
+![Poids ERC](docs/figures/allocation_poids_erc.png)
+
+### 9.3 Du score au portefeuille
+
+Chaque fin de mois :
+1. **Sélection** : les 30 % d'actions au meilleur score.
+2. **Zone tampon** : une action déjà détenue n'est vendue que si elle sort des 40 % meilleurs. Sans cela, une action qui oscille autour du seuil serait achetée et vendue sans arrêt.
+3. **Pondération** : $w_i \propto \text{capitalisation}_i \times (1 + S_i)$. On part du poids de l'action dans l'indice et on l'augmente selon son score.
+4. **Plafond de 10 % par action**, comme la règle de diversification des fonds européens (OPCVM). Sans lui, Apple, très grosse et bien notée en 2020, aurait pesé jusqu'à 37 % du portefeuille.
+5. **Frais** : 0,10 % de chaque dollar acheté ou vendu, retiré du rendement. C'est un ordre de grandeur réaliste pour des grandes capitalisations américaines.
+
+Résultat : environ 140 actions en portefeuille (de 97 à 172 selon les mois).
+
+Les poids dérivent avec les cours pendant le mois. La rotation compte tout ce qu'il faut acheter et vendre pour revenir aux poids cibles.
+
+### 9.4 Les benchmarks
+
+- **Univers pondéré par la capitalisation** (benchmark principal) : toutes les actions de la base, au poids de l'indice. Mêmes actions et mêmes données que les stratégies, donc seul l'effet des facteurs les sépare.
+- **SPY** : acheter le S&P 500 et le garder, ce qu'un investisseur aurait vraiment obtenu.
+- **RSP** : le S&P 500 équipondéré.
+
+### 9.5 Résultats
+
+![Performance](docs/figures/allocation_performance.png)
+
+Nets de frais, mars 2012 à août 2026 :
+
+| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
+|---|---:|---:|---:|---:|---:|
+| Score équipondéré | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
+| Score ERC | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
+| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | 11 % |
+| SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | |
+| RSP | 12,5 % | 15,1 % | 0,75 | −26,7 % | |
+
+- **Le score équipondéré fait +0,8 % par an de plus que l'univers, le score ERC −0,1 %.**
+- **Aucune des deux ne fait mieux en Sharpe** : leur volatilité est plus forte que celle de l'indice (15,4 à 15,8 % contre 14,0 %).
+- **Rotation élevée** : environ 300 % par an, achats et ventes compris, soit 1,5 fois le portefeuille remplacé chaque année. Cela coûte 0,3 % par an en frais. C'est surtout le momentum qui tourne : son z-score se renouvelle complètement en un an (étape 8.5).
+
+### 9.6 Ces écarts sont-ils significatifs ?
+
+Tests sur le rendement actif mensuel (stratégie − benchmark) :
+- **$t$ de Newey-West** : robuste à l'autocorrélation des rendements.
+- **Bootstrap par blocs de mois** (5 000 tirages) : intervalle de confiance à 95 %.
+
+| Stratégie | Benchmark | Rendement actif | Écart de suivi | IR | $t$ | Intervalle à 95 % |
+|---|---|---:|---:|---:|---:|---|
+| Score équipondéré | Univers | +0,8 % | 7,2 % | 0,11 | 0,38 | −2,9 % à +4,5 % |
+| Score ERC | Univers | −0,1 % | 6,4 % | −0,02 | −0,07 | −3,5 % à +3,0 % |
+| Score équipondéré | Score ERC | +0,9 % | 3,8 % | 0,23 | 0,81 | −1,2 % à +3,1 % |
+| Univers | SPY | +0,4 % | 0,8 % | 0,55 | 2,64 | +0,1 % à +0,7 % |
+
+- **Rien n'est significatif pour les stratégies.** Les intervalles contiennent largement zéro. L'écart entre équipondéré et ERC ne l'est pas non plus.
+- **Le backtest est trop court pour trancher.** Avec 14,5 ans, il faudrait un ratio d'information d'au moins 0,53 pour obtenir $t = 2$. Les fonds factoriels visent plutôt 0,3 à 0,5.
+- **30 variantes testées** (pondérations, seuils, zones tampons). La meilleure, celle retenue ci-dessus, a un IR de 0,11. Corrigé du nombre d'essais (ratio de Sharpe dégonflé), la probabilité que son vrai IR soit positif n'est que de 38 %.
+- **Le biais du survivant se voit** : l'univers bat SPY de 0,4 % par an, de façon significative ($t = 2{,}6$). Les entreprises disparues manquent à la base (étape 8.6). C'est pourquoi le benchmark principal est l'univers, qui a le même biais que les stratégies.
+
+### 9.7 Pourquoi ça ne paie pas : les facteurs n'ont presque rien rapporté depuis 2012
+
+**La méthode fonctionne : les stratégies portent bien les facteurs voulus.** Régression sur les six facteurs de Fama et French (étape 4) :
+
+![Expositions](docs/figures/allocation_expositions.png)
+
+- Expositions positives à la value (HML), à l'investissement (CMA), au momentum et à la taille. L'univers, lui, est neutre ou exposé à l'envers (SMB −0,12).
+- **Alpha nul** ($t$ de 0,35 et −0,53) : toute la performance s'explique par ces expositions.
+- **RMW reste presque à zéro**, même dans le score ERC où il pèse 30 %. Les z-scores de rentabilité et de value sont opposés (corrélation −0,47, étape 8.5). Dans le score, ils s'annulent en partie : les actions les plus rentables sont souvent chères, donc pénalisées par HML.
+
+**Mais les facteurs n'ont pas été rémunérés pendant le backtest** (rendement annuel moyen des facteurs de Fama et French) :
+
+| | Mkt-RF | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|---:|
+| 1963-2011 | 5,3 % | 3,4 % | 4,5 % | 3,5 % | 3,9 % | 8,6 % |
+| 2012-2026 | 13,1 % | −1,5 % | 0,2 % | 1,5 % | −0,1 % | 3,0 % |
+
+- **Sur 2012-2026, aucune prime de style n'est significative**, alors qu'elles l'étaient toutes avant 2012. Le marché, lui, a rapporté 13 % par an.
+- Une stratégie qui s'éloigne de l'indice pour porter ces facteurs ne pouvait donc pas gagner grand-chose : elle a pris du risque en plus (écart de suivi de 7 %) pour une prime presque nulle.
+
+### 9.8 Robustesse
+
+- **Sous-périodes** : l'ERC fait +1,4 % par an contre l'univers en 2012-2019, puis −2,0 % en 2020-2026. L'équipondéré fait +0,7 % puis +0,9 %. Aucun écart n'est significatif.
+- **Pondération** : avec des poids égaux entre actions, les deux scores perdent face à l'univers (−0,2 % et −0,5 % par an). La pondération par capitalisation × (1 + score) fait mieux, parce qu'elle reste plus proche de l'indice.
+- **Seuil et zone tampon** : de 20 % à 50 % d'actions retenues, le rendement actif reste entre −1,6 % et +0,8 % par an, jamais significatif. La zone tampon réduit la rotation d'environ 30 % (de 450 % à 315 % par an pour le score équipondéré).
+- **Frais** : l'avance du score équipondéré disparaît vers 0,35 % de frais par dollar échangé, celle du score ERC dès 0,05 %.
+
+![Frais](docs/figures/allocation_frais.png)
+
+### 9.9 À retenir de l'étape 9
+
+- **La chaîne complète fonctionne** : des comptes et des cours jusqu'à un portefeuille investissable, avec frais, zone tampon et des expositions conformes à ce qu'on vise.
+- **Sur 2012-2026, l'allocation par facteurs ne bat pas le S&P 500 de façon significative.** Score équipondéré : +0,8 % par an contre l'univers ($t = 0{,}4$). Score ERC : −0,1 %.
+- **La raison n'est pas la méthode mais la période** : les primes de style n'ont presque rien rapporté depuis 2012, alors que le marché a fortement monté.
+- **L'ERC ne fait pas mieux que l'équipondération ici.** Répartir le risque entre facteurs n'aide pas quand aucun facteur ne rapporte, et les deux scores sont trop proches (corrélation 0,92) pour se départager en 14 ans.
+- **Limites** : un backtest court (14,5 ans, il faudrait un IR de 0,53 pour conclure), le biais du survivant, des frais simplifiés (taux fixe, sans impact de marché selon la taille de l'ordre).
+
 ## Références
 
+- Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
@@ -907,10 +1023,12 @@ Fichier : `data/processed/zscores_sp500_mensuels.csv.gz`.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
+- Frazzini A., Pedersen L. (2014), Betting Against Beta, *Journal of Financial Economics*.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
 - Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
 - Maillard S., Roncalli T., Teïletche J. (2010), The Properties of Equally Weighted Risk Contribution Portfolios, *Journal of Portfolio Management*.
+- Politis D., Romano J. (1994), The Stationary Bootstrap, *Journal of the American Statistical Association*.
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
