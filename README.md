@@ -1013,6 +1013,41 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 - **L'ERC ne fait pas mieux que l'équipondération ici.** Répartir le risque entre facteurs n'aide pas quand aucun facteur ne rapporte, et les deux scores sont trop proches (corrélation 0,92) pour se départager en 14 ans.
 - **Limites** : un backtest court (14,5 ans, il faudrait un IR de 0,53 pour conclure), le biais du survivant, des frais simplifiés (taux fixe, sans impact de marché selon la taille de l'ordre).
 
+## Étape 10 : améliorer la méthode d'allocation
+
+### 10.1 L'ERC calculé sur nos propres facteurs
+
+À l'étape 9, les poids ERC viennent des volatilités et corrélations des facteurs de Fama et French. Ici, on les calcule sur les **facteurs reconstruits sur le S&P 500** (étape 8.4). Tout le reste est inchangé. Code : [`notebooks/etape10_erc_facteurs_reconstruits.ipynb`](notebooks/etape10_erc_facteurs_reconstruits.ipynb).
+
+**Pourquoi c'est intéressant :**
+- Le risque qui compte est celui des facteurs **tels qu'on les investit**. Or nos facteurs ne sont qu'en partie ceux de French : corrélation de 0,53 (RMW) à 0,88 (Mom).
+- Ils sont plus volatils (HML 15 % contre 12 %, CMA 10 % contre 8 %) et beaucoup plus liés entre eux. Dans le S&P 500, petites et « value » vont souvent ensemble : SMB et HML sont corrélés à 0,78, contre 0,33 chez French.
+- Si l'ERC est sensible à ces différences, les poids changent, et le portefeuille aussi.
+
+**Contrainte** : nos facteurs démarrent en mars 2012. Avec 60 mois d'historique, les premiers poids sont disponibles en février 2017, d'où une comparaison sur **mars 2017 à août 2026** (114 mois).
+
+**Les poids bougent peu**, et les scores restent presque identiques (corrélation de 0,96) :
+
+| | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|
+| ERC French | 24 % | 11 % | 29 % | 16 % | 20 % |
+| ERC reconstruit | 19 % | 15 % | 32 % | 13 % | 21 % |
+
+**Backtest** (mêmes règles qu'à l'étape 9, nets de 0,10 % de frais par dollar échangé, mars 2017 à août 2026) :
+
+| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
+|---|---:|---:|---:|---:|---:|
+| ERC French (étape 9) | 13,7 % | 17,4 % | 0,69 | −23,2 % | 312 % |
+| ERC reconstruit | 14,0 % | 17,0 % | 0,72 | −24,9 % | 308 % |
+| Univers (capitalisation) | 15,6 % | 15,7 % | 0,85 | −23,6 % | |
+| SPY | 15,0 % | 15,6 % | 0,82 | −23,9 % | |
+
+![ERC reconstruit](docs/figures/amelioration_erc_reconstruit.png)
+
+- **ERC reconstruit contre ERC French : +0,2 % par an**, avec $t = 0{,}19$. L'intervalle à 95 % va de −1,8 % à +2,5 %. Les deux versions sont statistiquement indiscernables.
+- **Contre l'univers, les deux restent derrière** : −1,2 % et −1,4 % par an, non significatif. La période 2017-2026 est la plus défavorable aux facteurs de style.
+- **Conclusion** : le résultat de l'étape 9 ne dépend pas de la source des volatilités et corrélations. Changer les poids entre facteurs ne suffit pas quand les facteurs eux-mêmes ne sont pas rémunérés.
+
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
