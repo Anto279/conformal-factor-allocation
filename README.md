@@ -1276,6 +1276,121 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 - **Appliqué au portefeuille d'actions, le contrôle par CP** ramène l'écart de suivi de 6,1 % à 4,0 % et les mois hors budget de 11 à 4, sans coût de rendement mesurable.
 - **Ses limites** : la garantie porte sur la moyenne, les sorties arrivent groupées après un choc, et un contrôle mois par mois ne protège pas d'une perte lente sur un an.
 
+## Étape 12 : comparaison finale des méthodes d'allocation
+
+- On met côte à côte les quatre façons de pondérer les facteurs construites dans le projet :
+  - **Équipondéré** : 20 % par facteur (étape 9) ;
+  - **ERC** : contributions au risque égales, volatilités et corrélations sur 60 mois (étape 9) ;
+  - **ERC GARCH** : même chose, avec la volatilité du mois suivant prévue par GARCH (étape 10.2) ;
+  - **ERC GARCH + CP** : ERC GARCH, avec les paris réduits quand la borne de perte conforme dépasse 2,5 % par mois (étape 11).
+- Deux terrains : **nos actions du S&P 500** (2012-2026, nettes de frais), puis **les facteurs de Fama et French** (1975-2026).
+- Code : [`notebooks/etape12_comparaison_finale.ipynb`](notebooks/etape12_comparaison_finale.ipynb).
+
+### 12.1 Sur notre univers d'actions (mars 2012 - août 2026)
+
+- Benchmark : **l'univers pondéré par la capitalisation** (mêmes actions, même biais du survivant). SPY est montré pour référence.
+- Rendements nets de 0,10 % de frais par dollar échangé. 174 mois.
+
+![Backtest final sur nos actions](docs/figures/final_actions.png)
+
+| | Rendement annuel | Volatilité | Sharpe | Perte max | Rendement actif | Écart de suivi | Ratio d'information | t (Newey-West) | Pire mois relatif | Mois sous −2,5 % | Rotation annuelle |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Équipondéré | 15,6 % | 15,8 % | 0,90 | −28,2 % | +0,77 % | 7,2 % | 0,11 | 0,38 | −6,6 % | 12 | 315 % |
+| ERC | 14,7 % | 15,4 % | 0,87 | −23,2 % | −0,12 % | 6,4 % | −0,02 | −0,07 | −5,9 % | 13 | 278 % |
+| ERC GARCH | 15,5 % | 15,1 % | 0,92 | −22,5 % | +0,53 % | 5,9 % | 0,09 | 0,30 | −5,7 % | 11 | 333 % |
+| **ERC GARCH + CP** | **15,7 %** | **14,9 %** | **0,95** | **−22,5 %** | **+0,70 %** | **4,0 %** | **0,17** | **0,56** | **−3,6 %** | **4** | 296 % |
+| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | | | | | | | |
+| SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | −0,41 % | 0,8 % | | −2,64 | | | |
+
+Rendement actif annuel contre l'univers, par sous-période :
+
+| | 2012-2016 | 2017-2021 | 2022-2026 |
+|---|---:|---:|---:|
+| Équipondéré | +2,8 % | −2,2 % | +1,9 % |
+| ERC | +2,5 % | −0,5 % | −2,4 % |
+| ERC GARCH | +2,9 % | +0,6 % | −1,9 % |
+| ERC GARCH + CP | +2,9 % | +1,2 % | −2,0 % |
+
+**Lecture du graphique :**
+- **Haut** : les quatre méthodes et l'univers finissent presque au même point (un peu plus de 8 $ pour 1 $). Pas d'écart visible à l'œil sur 14 ans.
+- **Milieu (rendement actif cumulé)** : c'est là que les méthodes se séparent.
+  - 2012-2016 : toutes gagnent sur l'univers (+10 à +15 %).
+  - 2020 : l'équipondéré décroche (−5 % cumulé). Il porte plus de value et de taille, les deux facteurs qui ont le plus souffert du Covid. Les versions ERC, qui réduisent ces facteurs plus volatils, tiennent mieux.
+  - 2022 : pic à +25-30 % pour les versions GARCH. La hausse des taux profite à la value et à la rentabilité.
+  - 2023-2025 : tout l'avance est rendue. Le marché est porté par quelques très grandes valeurs de croissance (Nvidia, Microsoft, Apple…), que nos portefeuilles plafonnent à 10 % et sous-pondèrent par construction (z-scores value et investissement négatifs).
+  - La courbe **ERC GARCH + CP** est la plus régulière : elle monte un peu moins vite en 2021-2022 et baisse moins en 2023-2025, car la règle réduit les paris quand le risque actif prévu est élevé.
+- **Bas (perte depuis le plus haut)** : en 2020, l'équipondéré perd 28 % contre 23 % pour l'univers. En 2022, toutes les méthodes perdent moins que l'univers (gris), grâce à leur penchant value.
+
+**Interprétation :**
+- **Aucune méthode ne bat l'univers de façon significative** : t entre −0,1 et 0,6, loin de 2. Le classement entre méthodes ne veut pas dire grand-chose sur 174 mois.
+- **ERC GARCH + CP a le meilleur profil parmi les stratégies** : meilleur Sharpe (0,95), plus faible écart de suivi (4,0 %), pire mois relatif −3,6 % au lieu de −5,7 à −6,6 %, 4 mois hors budget au lieu de 11 à 13. Son Sharpe reste égal à celui de l'univers (0,96).
+- **L'apport net de chaque brique est donc surtout du côté du risque** : GARCH réduit la volatilité et la perte max, la CP réduit fortement l'écart de suivi. Aucune ne crée de rendement.
+- **Pourquoi pas de surperformance** : sur 2012-2026, les primes des facteurs sont proches de zéro (étape 9) et la période est dominée par les grandes valeurs de croissance, à l'opposé de nos paris.
+
+### 12.2 Sur les facteurs de Fama et French (janvier 1975 - août 2026)
+
+**Quel benchmark ?**
+- Le **marché** (Mkt-RF + taux sans risque), sur 50 ans. C'est le choix naturel : c'est le portefeuille qu'on détient si on ne fait aucun pari sur les facteurs, comme l'univers pondéré par la capitalisation pour nos actions.
+- Construction (comme en 11.5) : **portefeuille = marché + $\sum_k b_k\, f_k$**.
+  - $b_k$ : poids du facteur $k$ selon la méthode (20 % chacun, ERC, ERC GARCH) ; pour ERC GARCH + CP, ces poids sont multipliés par $k_t \le 1$.
+  - Chaque facteur est autofinancé (achat des meilleures actions, vente des moins bonnes), donc l'ajouter ne demande pas de capital : il ajoute seulement un **pari actif**, de la même façon que nos z-scores inclinent l'indice.
+- Les cinq facteurs sont SMB, HML, RMW, CMA et Mom (le marché est déjà le benchmark).
+- Début en 1975 : GARCH a besoin de dix ans d'historique (1963-1972), puis la CP de 24 mois de calibration. 620 mois.
+- **Sans frais**, et les facteurs de French contiennent des petites capitalisations et des positions vendeuses : c'est un portefeuille théorique, qui mesure ce que vaut chaque méthode d'allocation quand les primes existent.
+
+Poids moyens des facteurs :
+
+| | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|
+| Équipondéré | 20 % | 20 % | 20 % | 20 % | 20 % |
+| ERC | 21 % | 15 % | 32 % | 20 % | 13 % |
+| ERC GARCH | 19 % | 15 % | 32 % | 19 % | 14 % |
+
+![Backtest final sur les facteurs de French](docs/figures/final_french.png)
+
+| | Rendement annuel | Volatilité | Sharpe | Perte max | Rendement actif | Écart de suivi | Ratio d'information | t (Newey-West) | Pire mois relatif | Mois sous −2,5 % |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Équipondéré | 17,0 % | 15,0 % | 0,85 | −46,0 % | +3,60 % | 4,8 % | 0,75 | 4,59 | −7,1 % | 21 |
+| ERC | 16,6 % | 15,0 % | 0,83 | −46,6 % | +3,31 % | 4,2 % | 0,79 | 4,86 | −7,3 % | 11 |
+| ERC GARCH | 16,8 % | 15,0 % | 0,84 | −44,5 % | +3,43 % | 4,2 % | 0,82 | 5,15 | −8,4 % | 10 |
+| **ERC GARCH + CP** | 16,2 % | 15,1 % | 0,80 | −44,5 % | +2,95 % | **3,3 %** | **0,89** | **5,53** | **−4,4 %** | **3** |
+| Marché | 12,8 % | 15,5 % | 0,59 | −50,3 % | | | | | | |
+
+Rendement actif annuel contre le marché, par sous-période (ratio d'information entre parenthèses) :
+
+| | 1975-1989 | 1990-2011 | 2012-2026 |
+|---|---:|---:|---:|
+| Équipondéré | +5,6 % (1,60) | +4,4 % (0,78) | +0,4 % (0,10) |
+| ERC | +4,3 % (1,62) | +4,6 % (0,91) | +0,4 % (0,11) |
+| ERC GARCH | +4,2 % (1,62) | +4,8 % (0,94) | +0,6 % (0,14) |
+| ERC GARCH + CP | +4,2 % (1,64) | +3,6 % (1,00) | +0,7 % (0,20) |
+
+**Lecture du graphique :**
+- **Haut** : 1 $ placé en 1975 devient environ 500 $ dans le marché et 2 400 à 3 400 $ avec les facteurs. L'écart se creuse surtout avant 2008.
+- **Milieu (rendement actif cumulé)** :
+  - montée régulière de 1975 à 1998 ;
+  - creux en 1998-1999 (bulle internet : la value et les petites capitalisations sous-performent) ;
+  - forte remontée en 2000-2003, quand la bulle éclate ;
+  - **courbe presque plate depuis 2008**, et surtout depuis 2012 : les primes ont disparu.
+  - La courbe **ERC GARCH + CP** est en dessous des autres à partir de 2000 : après le choc de 1999, le risque prévu est élevé, la règle réduit les paris et rate une partie du rebond de 2000-2003.
+- **Bas (perte depuis le plus haut)** : en 2000-2003, les portefeuilles perdent environ 20 % contre 45 % pour le marché (gris), car les facteurs value et rentabilité montent pendant la baisse. En 2008, la protection est faible (−45 % contre −50 %).
+
+**Interprétation :**
+- **Sur 50 ans, toutes les méthodes battent le marché nettement** : +3 à +3,6 % par an, t entre 4,6 et 5,5. Le Sharpe passe de 0,59 à 0,80-0,85. C'est la prime des facteurs documentée par Fama et French.
+- **Entre méthodes, l'ordre suit le risque pris** :
+  - l'équipondéré a le plus de rendement actif (+3,6 %) mais aussi le plus d'écart de suivi (4,8 %) et 21 mois hors budget ;
+  - l'ERC et l'ERC GARCH réduisent l'écart de suivi (4,2 %) et améliorent le ratio d'information (0,75 → 0,79 → 0,82) ; GARCH apporte un petit gain régulier, comme en 10.2 ;
+  - **la CP donne le meilleur ratio d'information (0,89) et le t le plus élevé (5,5)** : moins de rendement actif (+3,0 %), mais beaucoup moins de risque actif (3,3 %, 3 mois hors budget, pire mois −4,4 %).
+- **Le Sharpe total ne suit pas** (0,80 pour la CP contre 0,84-0,85) : le risque du portefeuille vient presque entièrement du marché, donc réduire le risque actif ne baisse pas la volatilité totale, alors que le rendement actif baisse.
+- **Le rapprochement avec nos actions** : sur 2012-2026, même avec les facteurs de French, le rendement actif tombe à +0,4 à +0,7 % par an (t < 0,8). L'absence de surperformance de la partie 12.1 vient donc de la **période**, pas de notre univers ni de nos méthodes.
+
+### 12.3 À retenir de l'étape 12
+
+- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) font gagner en ratio d'information à chaque étape.
+- **Quand elles n'existent pas (2012-2026)**, aucune méthode ne crée de rendement, sur nos actions comme sur les séries de French. Les méthodes servent alors à **contrôler le risque** : ERC GARCH + CP est la version la plus régulière, avec le plus faible écart de suivi et le moins de mauvais mois.
+- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est d'environ 0,6 point par an, l'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions).
+- **Limites** : 14,5 ans de données sur nos actions (aucune différence n'y est significative) ; séries de French sans frais, avec petites capitalisations et ventes à découvert ; même biais du survivant qu'à l'étape 8 pour l'univers d'actions.
+
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
