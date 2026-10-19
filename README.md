@@ -1136,85 +1136,145 @@ Fin de chaque mois : $\Sigma_t = D_t C_t D_t$, avec $D_t$ les volatilités prév
 
 **À retenir** : la volatilité des facteurs est nettement prévisible, et le GARCH la prévoit bien mieux que l'historique sur 60 mois. Dans l'allocation, cela donne une petite amélioration régulière, mais pas significative sur 14,5 ans. Les poids entre facteurs comptent moins que les primes elles-mêmes, quasi nulles depuis 2012.
 
-### 10.3 Un panier par facteur : mélanger plutôt qu'intégrer
+## Étape 11 : contrôler le risque actif avec la Conformal Prediction
 
-Code : [`notebooks/etape10_3_paniers_par_facteur.ipynb`](notebooks/etape10_3_paniers_par_facteur.ipynb).
+Code : [`notebooks/etape11_controle_risque_actif_cp.ipynb`](notebooks/etape11_controle_risque_actif_cp.ipynb). Portefeuille de départ : celui de l'étape 10.2. Benchmark : l'univers pondéré par la capitalisation.
 
-**Pourquoi :**
-- Jusqu'ici, on **intègre** les facteurs : un seul score par action, $S = \sum_k w_k z_k$, puis un seul portefeuille. Les poids ERC ne servent qu'à pondérer des z-scores.
-- L'autre approche est de **mélanger** : un panier d'actions par facteur, puis on répartit l'argent entre les paniers. Les poids ERC deviennent alors de l'argent réellement investi dans chaque facteur : c'est l'allocation en deux étages de l'étape 7, prise au pied de la lettre.
-- C'est un débat ouvert chez les gérants multi-facteurs :
-  - l'intégration donnerait plus d'exposition aux facteurs pour le même écart de suivi (Bender et Wang, 2016 ; Fitzgibbons et al., 2017) ;
-  - les deux approches se vaudraient quand les inclinaisons sont modestes (Ghayur, Heaney et Platt, 2018) ;
-  - le mélange est plus simple à expliquer à un client.
-- On le tranche ici sur nos données, **toutes choses égales par ailleurs** : mêmes actions, mêmes z-scores, mêmes règles, mêmes poids GARCH-ERC qu'en 10.2.
+### 11.1 Pourquoi
 
-**Comment :**
-1. **Cinq paniers**, un par facteur (SMB, HML, RMW, CMA, Mom). Pour le facteur $k$, on applique la règle de l'étape 9 à son seul z-score $z_k$ :
-   - les 30 % meilleures actions sur $z_k$, gardées tant qu'elles restent dans les 40 % meilleures ;
-   - poids dans le panier $\propto \text{capitalisation} \times (1 + z_k)$, plafond de 10 % par action.
-2. **Budget de chaque panier** : le poids GARCH-ERC du facteur de French correspondant (étape 10.2).
-3. **Portefeuille final** : $w_i = \sum_k b_k\, w^{(k)}_i$. Une action présente dans plusieurs paniers additionne ses poids. Le plafond de 10 % reste respecté.
-4. Backtest, frais (0,10 % par dollar échangé) et tests identiques à l'étape 9.
+- **Le rendement actif** est l'écart entre notre portefeuille et l'indice, mois par mois. Son écart-type annualisé est l'**écart de suivi** : 5,9 % pour la 10.2.
+- **Un gérant multi-facteurs a un budget d'écart à l'indice.** Le client accepte que le fonds s'écarte de l'indice, mais dans une limite, par exemple « pas plus de 2,5 % de sous-performance sur un mois, sauf rarement ».
+- **Aujourd'hui, rien ne contrôle ce risque.** Le portefeuille de la 10.2 a perdu jusqu'à 5,7 % face à l'indice en un mois, et 11 des 150 mois de mars 2014 à août 2026 ont dépassé −2,5 %.
+- **Pour contrôler ce risque, il faut le prévoir, puis savoir à quel point la prévision est fiable.** C'est là qu'intervient la Conformal Prediction (CP) :
+  - elle ne prévoit pas le rendement, qui reste imprévisible (étapes 1 et 9) ;
+  - elle transforme une prévision de risque en un intervalle qui contient le rendement actif avec une probabilité choisie (90 %), sans supposer que les rendements suivent une loi normale.
+- **C'est le bon endroit pour la CP dans ce projet** : la volatilité est prévisible (étape 10.2), et la garantie de couverture a une valeur concrète pour un budget de risque.
 
-**Le budget doit porter sur le risque actif :**
-- Les cinq paniers long-only sont dominés par le marché. Leurs rendements sont corrélés à 0,82 en moyenne, et un ERC calculé dessus donne 18 à 22 % à chacun : il ne voit pas les différences de risque entre facteurs.
-- Ce qui différencie les paniers, c'est leur rendement **actif** (panier moins univers). Ces rendements actifs ne sont presque pas corrélés entre eux (0,02 en moyenne).
-- Les facteurs de French mesurent justement ce pari actif, sans le marché, et remontent à 1963, ce qui laisse assez d'historique pour le GARCH. On les utilise donc pour fixer les budgets. Un ERC directement sur les rendements actifs des paniers est testé en robustesse.
+### 11.2 Prévoir le risque actif du mois suivant : un modèle de risque à facteurs
 
-**Les actions les plus souvent présentes** (part des mois dans le panier, et poids moyen dans le panier) :
+**L'idée** : le rendement actif vient de deux sources :
+- les paris sur les facteurs (le portefeuille est plus value, plus petit… que l'indice) ;
+- le risque propre à chaque action, qui ne s'explique pas par les facteurs.
 
-| Panier | Actions les plus présentes |
-|---|---|
-| SMB (petites) | CenterPoint Energy, Textron, Darden, Masco, NiSource : 100 % des mois, environ 0,7 % chacune |
-| HML (value) | JPMorgan (7,2 %), Bank of America (7,2 %), Citigroup (5,1 %), Wells Fargo (4,5 %), Goldman Sachs (2,3 %) : 100 % des mois |
-| RMW (rentables) | Apple (9,7 %), Mastercard (4,0 %), PepsiCo (1,9 %), Accenture (1,2 %), Paychex : 100 % des mois |
-| CMA (investissent peu) | General Electric (96 %, 3,9 %), Mondelez (90 %), Johnson Controls (82 %), Altria (79 %), AIG (79 %) |
-| Mom (momentum) | Cintas (74 %), Nvidia (68 %, 4,8 %), KLA (61 %), Netflix (61 %), Microsoft (60 %, 8,2 %) |
+Le poids actif d'une action est $d_i = w_i^{\text{portefeuille}} - w_i^{\text{indice}}$. Avec la décomposition $r_i - r_f = \alpha_i + \beta_i^\top f + \varepsilon_i$ (étape 4) :
 
-- **HML est un panier de banques** : les quatre plus grandes banques américaines y sont tout le temps et pèsent un quart du panier.
-- **RMW est dominé par Apple**, presque toujours au plafond de 10 %.
-- **SMB contient les plus petites actions du S&P 500**, avec des poids faibles et répartis (les 10 premières ne pèsent que 9 % du panier).
-- **Mom tourne le plus** : aucune action n'y est plus de 74 % du temps, et la tech domine (Nvidia, Microsoft, semi-conducteurs).
-- **Recouvrement** : 39 % des actions détenues ne sont que dans un panier, 40 % dans deux et 21 % dans trois ou plus. HML et RMW ne partagent presque rien (5 %).
+$$a = \sum_i d_i\, r_i = e^\top f + \sum_i d_i\, \varepsilon_i, \qquad e = \sum_i d_i\, \beta_i$$
 
-**Résultats** (mars 2012 à août 2026, nets de frais) :
+$$\hat\sigma_a^2 = \underbrace{e^\top \hat\Sigma_f\, e}_{\text{risque des facteurs}} + \underbrace{\textstyle\sum_i d_i^2\, \hat s_i^2}_{\text{risque propre}}$$
 
-| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Écart de suivi | Rotation annuelle |
-|---|---:|---:|---:|---:|---:|---:|
-| Intégré équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 7,2 % | 315 % |
-| Intégré GARCH-ERC (étape 10.2) | 15,5 % | 15,1 % | 0,92 | −22,5 % | 5,9 % | 333 % |
-| Mélange équipondéré | 14,5 % | 14,6 % | 0,90 | −24,6 % | 3,7 % | 136 % |
-| **Mélange GARCH-ERC** | **14,6 %** | **14,5 %** | **0,91** | **−22,6 %** | **3,1 %** | **153 %** |
-| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | | |
-| SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | | |
+**Ce qu'on fait chaque fin de mois $t$ :**
+1. **Bêtas de chaque action** : régression de ses 60 derniers rendements mensuels (au moins 36) sur les six facteurs de Fama et French. On obtient ses bêtas $\beta_i$ et la volatilité de son résidu $\hat s_i$. Les actions trop récentes (1,3 % des poids actifs) reçoivent les valeurs médianes.
+2. **Poids actifs** $d_i$ : portefeuille de la 10.2 moins indice.
+3. **Expositions actives** $e = \sum_i d_i \beta_i$. Par exemple, en moyenne : +0,22 en HML, +0,18 en SMB, +0,04 en marché.
+4. **Covariance des facteurs pour le mois suivant** : $\hat\Sigma_f = D\,C\,D$, avec $D$ les volatilités prévues par le GARCH (étape 10.2, marché compris) et $C$ les corrélations des 60 derniers mois.
+5. **Risque actif prévu** $\hat\sigma_a$ : la racine de la formule ci-dessus.
 
-![Mélange contre intégré](docs/figures/paniers_backtest.png)
+C'est le principe des modèles de risque utilisés par les gérants quantitatifs (Grinold et Kahn, 2000).
 
-- **Le mélange fait un peu moins bien que l'intégré** : −0,85 % par an avec les poids GARCH-ERC ($t = -0{,}7$) et −1,1 % en équipondéré ($t = -1{,}0$). Ce n'est pas significatif, et les Sharpe sont quasi identiques (écart de −0,02).
-- **Le mélange colle beaucoup plus à l'indice** : environ 367 actions au lieu de 140, un écart de suivi divisé par deux (3,1 % contre 5,9 %) et une rotation divisée par deux (153 % contre 333 %).
-- **Contre l'univers** : −0,3 % par an, $t = -0{,}4$. Toujours aucune surperformance démontrée.
+**Le modèle est-il bon ?**
+- **Niveau** : 6,4 % d'écart de suivi prévu en moyenne, contre 5,9 % réalisé. Le modèle surestime un peu le risque.
+- **Variations** : la corrélation entre le risque prévu et l'écart réalisé est de 0,34. La régression de Mincer-Zarnowitz donne $b = 0{,}49$ ($t = 4{,}1$) : le modèle anticipe bien les mois plus risqués, mais il exagère les variations.
+- **Origine du risque** : 59 % du risque prévu vient des facteurs, le reste du risque propre aux actions.
+- **Queues épaisses** : le rendement actif divisé par le risque prévu a un aplatissement de 3,9, contre 3 pour une loi normale.
 
-![Expositions](docs/figures/paniers_expositions.png)
+### 11.3 De la prévision à un intervalle fiable : la Conformal Prediction
 
-- **Le cœur du débat : le mélange dilue les expositions.** La somme des cinq expositions de style tombe de 0,65 (intégré) à 0,30 (mélange). Le momentum disparaît presque (0,15 contre 0,03) : les paniers value et investissement achètent des actions en retard, qui annulent le panier momentum.
-- **Par point d'écart de suivi, les deux se valent** : 0,10 d'exposition pour le mélange, 0,11 pour l'intégré. Avec des inclinaisons aussi modestes, on retrouve le résultat de Ghayur et al. (2018) : l'intégration ne donne pas plus d'exposition par unité de risque actif, elle prend simplement plus de risque actif.
+Pour passer d'un niveau de risque à un intervalle à 90 %, il faut un multiplicateur $q$ : $a_{t+1} \in [-q\,\hat\sigma_a \, ; \, +q\,\hat\sigma_a]$.
+- **Méthode classique** : $q = 1{,}645$, valable seulement si le rendement actif suit une loi normale et si le modèle est juste en niveau.
+- **Conformal Prediction** : on lit $q$ dans les erreurs passées du modèle.
 
-**L'ERC devient-il vraiment « réel » ?** Pas avec les budgets de French. Contributions réalisées au risque actif du portefeuille :
+**Les quatre étapes, chaque fin de mois $t$ :**
+1. **Score de non-conformité** de chaque mois passé : $s_\tau = |a_\tau| / \hat\sigma_{a,\tau}$. Il dit de combien le vrai rendement actif a dépassé le risque prévu ($s = 2$ : un écart de deux fois le risque prévu).
+2. **Calibration** : $q_t$ = quantile à 90 % des scores des 60 derniers mois (au moins 24). La CP prend le rang $\lceil (n+1) \times 0{,}9 \rceil$ parmi $n$ scores : c'est ce qui garantit la couverture en échantillon fini.
+3. **ACI, la version adaptative** (Gibbs et Candès, 2021) : comme le marché change, on ajuste le niveau visé après chaque mois : $\alpha_{t+1} = \alpha_t + \gamma\,(\alpha - \text{err}_t)$.
+   - $\text{err}_t = 1$ si le rendement actif est sorti de l'intervalle, sinon 0.
+   - Une sortie élargit les intervalles suivants ; une série de mois dedans les resserre doucement.
+   - $\alpha = 10\,\%$, $\gamma = 0{,}005$.
+4. **Intervalle du mois suivant** : $[-q_t\,\hat\sigma_{a,t+1} \, ; \, +q_t\,\hat\sigma_{a,t+1}]$. Sa borne basse est la **perte relative à 90 %** : environ 5 % de chances de faire pire.
 
-| | SMB | HML | RMW | CMA | Mom |
+**Résultats** (mars 2014 à août 2026, 150 mois ; les intervalles commencent après 24 mois de scores) :
+
+| | Couverture | p Kupiec | Sorties par le bas | q moyen |
+|---|---:|---:|---:|---:|
+| Quantile normal (1,645) | 90,7 % | 0,78 | 5,3 % | 1,64 |
+| CP simple | 88,0 % | 0,43 | 6,7 % | 1,50 |
+| CP adaptative (ACI) | 89,3 % | 0,79 | 6,0 % | 1,58 |
+
+![Intervalles](docs/figures/cp_intervalles_actions.png)
+
+- **Les trois méthodes couvrent à peu près 90 %** : le test de Kupiec ne rejette aucune d'elles.
+- **Ici, le quantile normal tombe juste par chance** : le modèle surestime le risque (6,4 % contre 5,9 %), ce qui compense les queues épaisses. La CP corrige d'elle-même cette surestimation, avec un $q$ plus petit (1,50 à 1,58).
+- **150 mois, c'est trop peu pour départager les méthodes** : un écart de couverture de 2 points n'est pas détectable. D'où la validation sur 50 ans de la partie 11.5.
+
+### 11.4 La règle d'allocation : réduire les paris quand la perte possible dépasse le budget
+
+**Budget** : perdre au plus $L = 2{,}5\,\%$ face à l'indice sur un mois, sauf environ 1 mois sur 20. Cela correspond à un écart de suivi d'environ 5 % par an.
+
+Chaque fin de mois :
+
+$$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{\text{indice}} + k_t\,(w^{\text{10.2}} - w^{\text{indice}})$$
+
+- Si la perte possible ($q_t\,\hat\sigma_{a,t+1}$) reste sous le budget, $k_t = 1$ : on garde le portefeuille de la 10.2.
+- Sinon, on garde seulement une part $k_t$ des paris, juste assez pour revenir au budget. Le reste est investi comme l'indice.
+- Les poids restent positifs (mélange entre le portefeuille et l'indice), et les frais sont comptés comme avant.
+
+**Backtest** (mars 2014 à août 2026, nets de frais) :
+
+| | Rendement annuel | Sharpe | Écart de suivi | Mois sous −2,5 % | Pire mois relatif | Pire 12 mois relatif | Paris conservés (k moyen) |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Sans contrôle (étape 10.2) | 14,0 % | 0,80 | 6,1 % | 11 | −5,7 % | −19,7 % | 100 % |
+| Contrôle, quantile normal | 14,3 % | 0,83 | 4,4 % | 6 | −4,3 % | −14,1 % | 84 % |
+| **Contrôle, CP adaptative** | **14,3 %** | **0,83** | **4,0 %** | **4** | **−3,6 %** | **−12,2 %** | **80 %** |
+
+![Contrôle du risque actif](docs/figures/cp_controle_actions.png)
+
+- **Le contrôle fonctionne** : les mois sous −2,5 % passent de 11 à 4, le pire mois relatif de −5,7 % à −3,6 %, et l'écart de suivi de 6,1 % à 4,0 %.
+- **Il ne coûte pas de rendement** : +0,2 % par an face au portefeuille sans contrôle ($t = 0{,}3$). Le contrôle réduit les paris surtout en 2021-2026, quand le risque actif est élevé. Or c'est la période où les paris ont perdu.
+- **La CP fait un peu mieux que le quantile normal** : moins de mois hors budget (4 contre 6), un pire mois moins grave. Elle réduit les paris moins souvent (71 mois contre 83), mais plus fort quand le risque est élevé.
+- **Robustesse** : avec un budget de 1,5 %, 2 %, 2,5 % ou 3 %, la CP donne toujours au moins aussi peu de mois hors budget que le quantile normal, pour un rendement actif proche.
+- **Limite** : sur 150 mois, l'écart entre CP et quantile normal n'est pas significatif.
+
+### 11.5 La même méthode sur 50 ans, avec les facteurs de Fama et French
+
+**Comment c'est construit :**
+- Notre portefeuille d'actions = l'indice + des paris sur les facteurs (bêta ≈ 1, expositions à HML, CMA, Mom…).
+- Avec les séries de French, on écrit directement : **portefeuille = marché + $\sum_k b_k\, f_k$**, avec $b_k$ le poids GARCH-ERC du facteur $k$ (étape 10.2) et $f_k$ son rendement long-short.
+- Chaque facteur est autofinancé (on vend autant qu'on achète) : l'ajouter au marché ne demande pas de capital, il ajoute seulement un **pari actif**.
+- Rendement actif : $a = \sum_k b_k f_k$. C'est exactement la partie « risque des facteurs » du modèle de la partie 11.2, sans le risque propre aux actions. Risque prévu : $\hat\sigma_a^2 = b^\top \hat\Sigma_f\, b$.
+- Les prévisions GARCH commencent fin 1972 (dix ans pour estimer le modèle), puis 24 mois de scores : les intervalles commencent en **janvier 1975 (620 mois)**.
+- Même score, même calibration, même ACI, même budget de 2,5 %. Pas de frais (les séries de French n'en ont pas) : on compare les méthodes entre elles.
+
+**Couverture des intervalles à 90 %** (1975-2026) :
+
+| | Couverture | p Kupiec | Sorties par le bas | q moyen |
+|---|---:|---:|---:|---:|
+| Quantile normal (1,645) | 84,7 % | 0,00 | 4,8 % | 1,64 |
+| CP simple | 91,5 % | 0,22 | 3,4 % | 2,29 |
+| CP adaptative (ACI) | 90,6 % | 0,59 | 3,5 % | 2,19 |
+
+![Couverture sur 50 ans](docs/figures/cp_couverture_french.png)
+
+- **Ici, le quantile normal échoue nettement** : 84,7 % de couverture au lieu de 90 %, rejeté par le test de Kupiec. Le modèle sous-estime le risque (3,1 % prévu contre 4,2 % réalisé), et les queues sont épaisses.
+- **La CP rétablit la couverture** : 90,6 % avec l'ACI. Elle a appris seule qu'il fallait un $q$ d'environ 2,2 au lieu de 1,645.
+- **Décennie par décennie**, l'ACI reste entre 87 % et 97 %, alors que le quantile normal tombe à 79-81 % dans les années 1980 et 2020.
+- **Limite** : les sorties arrivent groupées (test d'indépendance de Christoffersen rejeté). La CP garantit une couverture moyenne, pas mois par mois. Après un choc (2000-2002), elle met quelques mois à s'élargir.
+
+**Contrôle du risque** (1975-2026, sans frais) :
+
+| | Rendement actif annuel | Écart de suivi | Ratio d'information | Mois sous −2,5 % | Pire mois relatif |
 |---|---:|---:|---:|---:|---:|
-| Budget GARCH-ERC moyen | 22 % | 14 % | 30 % | 17 % | 18 % |
-| Contribution au risque actif | 45 % | 39 % | −1 % | 19 % | −2 % |
+| Sans contrôle | +3,4 % | 4,2 % | 0,82 | 10 | −8,4 % |
+| Contrôle, quantile normal | +3,3 % | 3,9 % | 0,84 | 7 | −6,9 % |
+| **Contrôle, CP adaptative** | **+3,0 %** | **3,3 %** | **0,89** | **3** | **−4,4 %** |
 
-- Les paniers SMB et HML s'écartent beaucoup de l'indice (volatilité active de 8 % et 11 % par an). Le panier RMW, plein de grandes capitalisations comme Apple, reste proche de l'indice (3 %), et sa contribution est même légèrement négative. La volatilité d'un facteur long-short de French ne dit donc pas combien de risque actif son panier long-only ajoute.
-- **Robustesse : ERC sur les rendements actifs des paniers eux-mêmes** (36 derniers mois, donc à partir de mars 2015). Les budgets changent nettement (RMW 36 %, SMB 12 %, HML 9 %), et les contributions deviennent beaucoup plus égales (9 à 25 %). L'écart de suivi tombe à 2,5 %. Le rendement ne change presque pas : +0,4 % par an face au mélange GARCH-ERC ($t = 0{,}8$), et +0,1 % face à l'intégré.
+- **Même conclusion qu'avec les actions, sur un historique quatre fois plus long** : la CP divise par trois les mois hors budget et réduit le pire mois de moitié. Le ratio d'information monte légèrement (0,82 → 0,89) : on perd un peu de rendement actif, mais encore plus de risque.
+- **Le contrôle mensuel n'empêche pas les pertes lentes** : la pire perte sur 12 mois reste −10,7 % dans les trois cas. Elle vient d'une suite de mois modérément mauvais, dont aucun ne dépasse la borne.
 
-**Robustesse :**
-- **Sous-périodes** : en 2012-2019, le mélange GARCH-ERC perd 2,1 % par an face à l'intégré ($t = -2{,}5$), car les facteurs payaient encore un peu et l'intégré y était plus exposé. En 2020-2026, il gagne 0,6 % ($t = 0{,}3$).
-- **Frais** : l'écart se réduit avec le niveau des frais, parce que le mélange tourne deux fois moins. Il passe de −1,0 % par an sans frais à −0,1 % avec 0,50 % par dollar échangé.
+### 11.6 À retenir de l'étape 11
 
-**À retenir** : sur nos données, mélanger ne bat pas intégrer et ne fait pas significativement moins bien. Le mélange est un intégré « en plus doux » : deux fois moins d'écart de suivi, de rotation et d'exposition aux facteurs, pour la même exposition par unité de risque actif. Pour que l'ERC égalise vraiment le risque entre paniers, il faut le calculer sur leurs rendements actifs, pas sur les facteurs de French.
+- **La CP est utile ici, pour le risque et non pour le rendement.** Elle transforme une prévision de risque imparfaite en un budget de perte qui tient en moyenne : 90,6 % de couverture sur 50 ans, contre 84,7 % pour la méthode classique.
+- **Appliqué au portefeuille d'actions, le contrôle par CP** ramène l'écart de suivi de 6,1 % à 4,0 % et les mois hors budget de 11 à 4, sans coût de rendement mesurable.
+- **Ses limites** : la garantie porte sur la moyenne, les sorties arrivent groupées après un choc, et un contrôle mois par mois ne protège pas d'une perte lente sur un an.
 
 ## Références
 
@@ -1222,21 +1282,22 @@ Code : [`notebooks/etape10_3_paniers_par_facteur.ipynb`](notebooks/etape10_3_pan
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
 - Barroso P., Santa-Clara P. (2015), Momentum Has Its Moments, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
-- Bender J., Wang T. (2016), Can the Whole Be More Than the Sum of the Parts? Bottom-Up versus Top-Down Multifactor Portfolio Construction, *Journal of Portfolio Management*.
 - Bollerslev T. (1986), Generalized Autoregressive Conditional Heteroskedasticity, *Journal of Econometrics*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
 - Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
+- Christoffersen P. (1998), Evaluating Interval Forecasts, *International Economic Review*.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
 - Diebold F., Mariano R. (1995), Comparing Predictive Accuracy, *Journal of Business and Economic Statistics*.
 - Engle R. (1982), Autoregressive Conditional Heteroscedasticity with Estimates of the Variance of United Kingdom Inflation, *Econometrica*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
-- Fitzgibbons S., Friedman J., Pomorski L., Serban L. (2017), Long-Only Style Investing: Don't Just Mix, Integrate, *Journal of Investing*.
 - Frazzini A., Pedersen L. (2014), Betting Against Beta, *Journal of Financial Economics*.
-- Ghayur K., Heaney R., Platt S. (2018), Constructing Long-Only Multifactor Strategies: Portfolio Blending vs. Signal Blending, *Financial Analysts Journal*.
+- Gibbs I., Candès E. (2021), Adaptive Conformal Inference Under Distribution Shift, *Advances in Neural Information Processing Systems*.
+- Grinold R., Kahn R. (2000), *Active Portfolio Management*, McGraw-Hill.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
 - J.P. Morgan (1996), *RiskMetrics: Technical Document*, 4e édition.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
+- Kupiec P. (1995), Techniques for Verifying the Accuracy of Risk Measurement Models, *Journal of Derivatives*.
 - Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
 - Maillard S., Roncalli T., Teïletche J. (2010), The Properties of Equally Weighted Risk Contribution Portfolios, *Journal of Portfolio Management*.
 - Mincer J., Zarnowitz V. (1969), The Evaluation of Economic Forecasts, dans *Economic Forecasts and Expectations*, NBER.
@@ -1246,4 +1307,5 @@ Code : [`notebooks/etape10_3_paniers_par_facteur.ipynb`](notebooks/etape10_3_pan
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
+- Vovk V., Gammerman A., Shafer G. (2005), *Algorithmic Learning in a Random World*, Springer.
 - Kenneth French, *Data Library* : https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
