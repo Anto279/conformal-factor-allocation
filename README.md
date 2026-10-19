@@ -1091,13 +1091,53 @@ Ces poids suivent la construction de Fama et French (deux jambes de 30 %, pondé
 
 **À retenir** : vendre à découvert les mauvais scores ne sauve pas la stratégie sur 2012-2026. Le long-short confirme l'étape 9 de façon plus nette : nos scores captent bien les facteurs voulus, mais ces facteurs n'ont pas été rémunérés sur la période.
 
+### 10.3 Une stratégie 130/30 : vendre seulement les très mauvais scores
+
+Code : [`notebooks/etape10_3_130_30.ipynb`](notebooks/etape10_3_130_30.ipynb).
+
+**Pourquoi après la 10.2 :**
+- Le long-short de la 10.2 perdait l'exposition au marché, seule source de performance sur 2012-2026.
+- Idée : garder le portefeuille de l'étape 9 et ajouter une **petite** vente à découvert, réservée aux pires scores. On profite des mauvais scores sans renoncer au marché.
+- Les anomalies seraient plus fortes côté vente (Stambaugh, Yu et Yuan, 2012), et vendre peu limite le risque de vendre une action qui flambe : la plupart des actions font moins bien que l'indice, une poignée fait l'essentiel de la hausse (Bessembinder, 2018).
+- C'est le format 130/30 utilisé par les gérants (Clarke, de Silva et Thorley, 2002).
+
+**La règle**, pour 100 $ de capital (tout le reste est identique à l'étape 9) :
+- **130 $ achetés** : le portefeuille de l'étape 9 (30 % meilleurs scores, tampon à 40 %, poids ∝ capi × (1 + S), plafond 10 %). Environ 141 actions.
+- **30 $ vendus** : les 10 % plus mauvais scores (tampon à 15 %), poids ∝ capi × (1 − S), plafond 10 %. Environ 49 actions.
+- Exposition nette au marché : 100 %, comme le long-only.
+- **Financement** : l'argent de la vente reste chez le courtier, qui prête les 30 $ achetés en plus. Coûts : 0,10 % par dollar échangé, 0,25 % par an pour emprunter les titres vendus, 0,50 % par an de marge sur le prêt, ces deux derniers sur les 30 $.
+
+**Résultats** (mars 2012 à août 2026, nets de frais) :
+
+| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
+|---|---:|---:|---:|---:|---:|
+| Long-only équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
+| Long-only ERC (étape 9) | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
+| 130/30 équipondéré | 14,9 % | 17,5 % | 0,80 | −32,2 % | 472 % |
+| 130/30 ERC | 13,6 % | 16,7 % | 0,75 | −25,5 % | 416 % |
+| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | |
+
+![Stratégie 130/30 contre long-only](docs/figures/strategie_130_30.png)
+
+- **Le 130/30 fait un peu moins bien que le long-only** : −0,3 % par an (équipondéré, $t$ = −0,3) et −0,8 % (ERC, $t$ = −0,9). Écarts non significatifs, mais le Sharpe baisse d'environ 0,1, car le risque monte (volatilité +1,5 point).
+- **La raison : les pires scores n'ont pas sous-performé.** Les actions vendues ont rapporté 16,0 % (équipondéré) et 16,7 % par an (ERC), plus que l'univers (15,1 %). Vendre ces actions a coûté 0,3 à 0,5 % par an avant frais.
+- **Les expositions augmentent comme prévu** : bêta inchangé (1,04), value, investissement et momentum environ 1,5 fois plus forts qu'en long-only. Mais ces primes sont quasi nulles depuis 2012 (étape 9.7) : les renforcer ne rapporte rien.
+- **Robustesse** :
+  - aucune sous-période n'est positive (2012-2019 comme 2020-2026) ;
+  - sans aucun frais, l'écart avec le long-only reste entre −0,4 % et +0,1 % par an ;
+  - vendre les 5, 10, 20 ou 30 % pires scores, en 120/20, 130/30 ou 150/50 : toujours négatif (−0,2 à −1,5 % par an), jamais significatif. Plus on vend, plus on perd.
+
+**À retenir** : vendre seulement les très mauvais scores ne change pas la conclusion. Sur 2012-2026, les mauvais scores n'ont pas été de mauvaises actions : il n'y avait rien à gagner à les vendre, et le 130/30 ajoute du risque et des frais pour rien.
+
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
+- Bessembinder H. (2018), Do Stocks Outperform Treasury Bills?, *Journal of Financial Economics*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
 - Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
+- Clarke R., de Silva H., Thorley S. (2002), Portfolio Constraints and the Fundamental Law of Active Management, *Financial Analysts Journal*.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
 - D'Avolio G. (2002), The Market for Borrowing Stock, *Journal of Financial Economics*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
@@ -1111,4 +1151,5 @@ Ces poids suivent la construction de Fama et French (deux jambes de 30 %, pondé
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
+- Stambaugh R., Yu J., Yuan Y. (2012), The Short of It: Investor Sentiment and Anomalies, *Journal of Financial Economics*.
 - Kenneth French, *Data Library* : https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
