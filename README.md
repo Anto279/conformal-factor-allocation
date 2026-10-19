@@ -1048,108 +1048,119 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 - **Contre l'univers, les deux restent derrière** : −1,2 % et −1,4 % par an, non significatif. La période 2017-2026 est la plus défavorable aux facteurs de style.
 - **Conclusion** : le résultat de l'étape 9 ne dépend pas de la source des volatilités et corrélations. Changer les poids entre facteurs ne suffit pas quand les facteurs eux-mêmes ne sont pas rémunérés.
 
-### 10.2 La même allocation, en long-short
+### 10.2 L'ERC avec une volatilité prévue par GARCH
 
-Tout est repris de l'étape 9 : mêmes actions du S&P 500, mêmes z-scores, mêmes scores finaux (équipondéré et ERC), même zone tampon, même plafond, mêmes frais. Une seule chose change : on **vend à découvert** les actions au plus mauvais score. Code : [`notebooks/etape10_2_long_short.ipynb`](notebooks/etape10_2_long_short.ipynb).
+À l'étape 9, les poids ERC utilisent la volatilité **historique** des facteurs sur 60 mois. Ici, on la remplace par la volatilité **prévue pour le mois suivant** par un GARCH, estimé sur les facteurs de Fama et French. Les corrélations restent calculées sur 60 mois. Tout le reste est identique à l'étape 9. Code : [`notebooks/etape10_2_erc_garch.ipynb`](notebooks/etape10_2_erc_garch.ipynb).
 
-**Pourquoi tester ça :**
-- En long-only, on ne peut pas tirer parti des **mauvais scores** : au mieux, on ne détient pas l'action. La moitié du signal est perdue.
-- Le long-only reste exposé au marché (bêta de 1,04), qui explique presque toute sa performance. Le long-short isole le **pari sur les facteurs** : c'est la façon dont Fama et French construisent leurs facteurs.
-- On mesure donc directement ce que rapportent nos scores, sans l'effet du marché.
+**Pourquoi :**
+- La volatilité historique sur 60 mois réagit avec des années de retard : après la bulle internet, elle est restée haute jusqu'en 2006.
+- L'ERC se trompe alors de poids : il garde trop de poids sur un facteur devenu agité, ou en retire trop à un facteur redevenu calme.
+- Gérer le risque des facteurs avec une volatilité récente améliore leur Sharpe (Moreira et Muir, 2017 ; Barroso et Santa-Clara, 2015 pour le momentum).
 
-**Ce qui change dans l'allocation :**
+#### La volatilité des facteurs est-elle prévisible ?
 
-| | Long-only (étape 9) | Long-short (10.2) |
-|---|---|---|
-| Actions achetées | 30 % meilleurs scores, poids ∝ capi × (1 + S) | identique |
-| Actions vendues | aucune | 30 % plus mauvais scores, poids ∝ capi × (1 − S) : plus le score est mauvais, plus on vend |
-| Zone tampon et plafond | 40 %, 10 % par action | identiques, sur chaque jambe |
-| Montants | 100 % investi | 1 $ acheté pour 1 $ vendu ; le capital reste placé au taux sans risque |
-| Exposition au marché | bêta ≈ 1 | bêta ≈ 0 |
-| Frais | 0,10 % par dollar échangé | idem sur les deux jambes, plus 0,25 % par an pour emprunter les titres vendus (tarif courant des grandes capitalisations, D'Avolio, 2002) |
+On regarde l'ACF et la PACF des **rendements au carré** $\varepsilon_t^2 = (r_t - \bar r)^2$, qui mesurent l'ampleur des mouvements sans leur signe (1963-2026, 758 mois).
 
-Ces poids suivent la construction de Fama et French (deux jambes de 30 %, pondérées par la capitalisation), avec en plus l'inclinaison par le score. La pondération par capitalisation limite le poids des petites actions, plus chères à échanger et à emprunter.
+![ACF et PACF](docs/figures/garch_acf_pacf.png)
 
-**Résultats** (mars 2012 à août 2026, nets de frais) :
+- **Oui, pour les cinq facteurs.** Le test de Ljung-Box (12 retards) et le test ARCH d'Engle (1982) rejettent l'absence de dépendance avec des p-valeurs inférieures à $10^{-6}$.
+- **ACF** : positive sur de nombreux retards et lente à décroître pour HML, RMW et CMA (les 6 premiers retards sont significatifs). Un mois agité annonce d'autres mois agités : c'est le **regroupement de la volatilité**. Pour SMB et Mom, l'effet porte surtout sur le premier retard.
+- **PACF** : plusieurs retards significatifs (jusqu'à 7 sur 12). Un modèle ARCH aurait besoin de beaucoup de retards. Un **GARCH(1,1)** résume cette mémoire longue avec trois paramètres (Bollerslev, 1986) :
 
-| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
+$$\sigma_{t+1}^2 = \omega + \alpha\, \varepsilon_t^2 + \beta\, \sigma_t^2$$
+
+#### Le choix du modèle
+
+- **Candidats** : ARCH(1), GARCH(1,1), (2,1), (1,2), GJR-GARCH (effet asymétrique des baisses) et EGARCH, avec des chocs de loi normale ou de Student.
+- **Critère** : BIC, sur 1963-1989 seulement, avant toute période d'évaluation.
+- **Retenu : GARCH(1,1) de Student.** L'EGARCH a un BIC un peu plus faible (environ 2 points par facteur, un écart faible), mais il est instable quand on le ré-estime : il prévoit une fois 137 % de volatilité annuelle pour HML. Le GARCH(1,1) n'a pas ce problème.
+- **Paramètres** (1963-1989) : persistance $\alpha + \beta$ de 0,79 (Mom) à 0,98 (SMB). Un choc de volatilité est à moitié résorbé en 3 mois pour Mom, et en 5 à 28 mois pour les autres facteurs. Le momentum a les chocs les plus forts et les plus brefs ($\alpha = 0{,}55$).
+- **Contrôle** : une fois le GARCH appliqué, les résidus standardisés au carré ne sont plus autocorrélés (p-valeurs de Ljung-Box de 0,48 à 0,93).
+
+#### Les prévisions de volatilité sont-elles bonnes ?
+
+**Procédure** : à chaque fin de mois, on prévoit la variance du mois suivant avec les seules données passées. Les paramètres sont ré-estimés chaque décembre. L'évaluation se fait hors échantillon, sur 1990-2026 (440 mois).
+
+**Trois prévisions comparées** :
+- l'historique sur 60 mois (étape 9) ;
+- l'EWMA de RiskMetrics : $\hat\sigma^2_{t+1} = 0{,}94\,\hat\sigma^2_t + 0{,}06\,\varepsilon_t^2$ ;
+- le GARCH(1,1).
+
+**Mesures** :
+- **Quoi comparer** : la vraie variance ne s'observe pas. On compare la prévision au rendement au carré du mois, une mesure sans biais mais très bruitée.
+- **QLIKE** $= \log \hat\sigma^2 + \varepsilon^2/\hat\sigma^2$ : la perte de référence, qui reste fiable malgré ce bruit (Patton, 2011).
+- **Diebold-Mariano** : teste si l'écart de perte entre deux prévisions est significatif.
+- **Mincer-Zarnowitz** : on régresse $\varepsilon_{t+1}^2 = a + b\,\hat\sigma^2_{t+1|t}$. Une bonne prévision donne $b = 1$. Avec $b < 1$, la prévision bouge trop par rapport à la réalité.
+- **Dépassements** : part des mois où $|\varepsilon| > 1{,}96\,\hat\sigma$, à comparer à environ 5 %.
+
+| 1990-2026 | QLIKE (GARCH − historique) | t de Diebold-Mariano | b de MZ : historique | b de MZ : GARCH | R² de MZ : historique | R² de MZ : GARCH |
+|---|---:|---:|---:|---:|---:|---:|
+| SMB | −0,10 | −2,3 | 0,38 | 0,90 | 1 % | 6 % |
+| HML | −0,36 | −4,1 | 0,25 | 0,87 | 1 % | 12 % |
+| RMW | −0,40 | −2,1 | 0,48 | 1,09 | 3 % | 16 % |
+| CMA | −0,17 | −3,6 | 0,53 | 0,86 | 4 % | 17 % |
+| Mom | −0,47 | −2,8 | 0,11 | 0,40 | 0 % | 4 % |
+
+![Volatilités prévues](docs/figures/garch_volatilites.png)
+
+- **Le GARCH bat l'historique pour les cinq facteurs, significativement à chaque fois.** Il bat aussi l'EWMA pour les cinq, significativement pour trois (HML, RMW, Mom).
+- **Les prévisions sont bien calibrées** : $b$ proche de 1 et $a = 0, b = 1$ non rejeté pour quatre facteurs. L'historique a un $b$ de 0,1 à 0,5 : il est presque sans lien avec la volatilité qui suit.
+- **Dépassements** : 3,6 % à 7,7 % avec le GARCH, contre 5,9 % à 9,3 % avec l'historique, qui sous-estime le risque après un choc.
+- **Exception, le momentum** : $b = 0{,}40$. Après un krach, le GARCH surréagit (73 % de volatilité annuelle prévue en 2009, alors que la plus forte volatilité réalisée sur 12 mois n'a jamais dépassé 43 %).
+- **Les $R^2$ sont faibles** (4 à 17 %) parce que le rendement au carré d'un mois est une mesure très bruitée de la variance. Avec des rendements quotidiens, on pourrait mesurer la variance réalisée et obtenir des $R^2$ plus élevés.
+- **Sur la période du backtest (2012-2026)**, plus calme, le GARCH reste meilleur pour les cinq facteurs, mais significativement seulement pour HML.
+
+#### Le backtest
+
+Fin de chaque mois : $\Sigma_t = D_t C_t D_t$, avec $D_t$ les volatilités prévues par le GARCH et $C_t$ les corrélations des 60 derniers mois. Les poids ERC, le score et le portefeuille suivent ensuite exactement l'étape 9.
+
+![Poids ERC](docs/figures/garch_poids_erc.png)
+
+- **Les poids bougent plus** (6,9 % de variation par mois, contre 1,8 %) et sur une plage plus large (Mom de 5 à 34 %), mais en moyenne ils restent proches. Le score est corrélé à 0,98 avec celui de l'étape 9.
+
+| Mars 2012 à août 2026, net de frais | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
 |---|---:|---:|---:|---:|---:|
-| Long-only équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
-| Long-only ERC (étape 9) | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
-| Long-short équipondéré | 0,7 % | 10,6 % | −0,03 | −32,4 % | 460 % |
-| Long-short ERC | 0,0 % | 9,4 % | −0,13 | −38,5 % | 404 % |
+| Score équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
+| Score ERC historique (étape 9) | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
+| **Score ERC GARCH** | **15,5 %** | **15,1 %** | **0,92** | **−22,5 %** | 333 % |
+| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | |
 | SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | |
 
-![Long-short contre long-only](docs/figures/long_short_backtest.png)
+![Backtest ERC GARCH](docs/figures/garch_backtest.png)
 
-- **Le long-short ne rapporte rien.** Au-dessus du taux sans risque : −0,4 % par an (équipondéré) et −1,2 % (ERC), avec un $t$ de −0,1 et −0,5. Avant frais, les actions achetées rapportent à peu près autant que les actions vendues (16,2 % contre 15,8 % par an pour l'équipondéré).
-- **Le pari est bien celui qu'on voulait** : bêta de marché quasi nul (0,03 à 0,04), expositions nettes à la taille (0,33), à la value (0,32 à 0,55), à l'investissement (0,26 à 0,30) et au momentum (0,24 à 0,26). Ces expositions sont plus fortes qu'en long-only (taille 0,33 contre 0,10, investissement 0,26-0,30 contre 0,15-0,19). Mais elles portent sur des primes quasi nulles depuis 2012 (étape 9.7) : les doubler ne rapporte rien.
-- **Le long-only fait nettement mieux**, avec un Sharpe plus élevé de 0,9 à 1,0. L'écart est significatif : l'intervalle à 95 % va de −1,5 à −0,5. Ce n'est pas un mérite des facteurs : le long-only a profité du marché (13 % par an), que le long-short neutralise.
-- **Risque élevé pour un portefeuille neutre au marché** : volatilité de 9 à 11 %, perte maximale de 32 à 38 %. Les deux jambes ne se compensent pas toujours (2020, 2025).
-- **Plus de frais** : rotation de 400 à 460 % par an, et coût d'emprunt. Même sans aucun frais, l'excédent ne dépasserait pas +0,4 % par an.
-- **Robustesse** : aucune sous-période n'est significative. L'ERC fait +0,8 % par an en 2012-2019, puis −3,6 % en 2020-2026.
+- **ERC GARCH contre ERC historique : +0,65 % par an**, $t = 1{,}1$ (intervalle à 95 % : −0,4 % à +1,9 %). L'écart de Sharpe est de +0,06 (−0,02 à +0,16). L'amélioration va dans le bon sens, mais elle n'est **pas significative**.
+- **Elle est régulière** : +0,6 % par an en 2012-2019 et +0,7 % en 2020-2026. Elle résiste aux frais : encore +0,4 % par an avec 0,50 % de frais par dollar échangé, malgré une rotation plus forte.
+- **Contre l'univers : +0,5 % par an**, $t = 0{,}3$. Toujours pas de surperformance démontrée du S&P 500.
+- **Le gain vient de la réactivité, pas du GARCH lui-même** : avec la volatilité EWMA, l'écart avec l'ERC historique est le même (+0,66 % par an, $t = 1{,}5$).
+- **Effet faible sur le risque du portefeuille** : la volatilité ne passe que de 15,4 % à 15,1 %. Celle d'un portefeuille long-only vient surtout du marché, pas de la répartition entre facteurs.
 
-**À retenir** : vendre à découvert les mauvais scores ne sauve pas la stratégie sur 2012-2026. Le long-short confirme l'étape 9 de façon plus nette : nos scores captent bien les facteurs voulus, mais ces facteurs n'ont pas été rémunérés sur la période.
-
-### 10.3 Une stratégie 130/30 : vendre seulement les très mauvais scores
-
-Code : [`notebooks/etape10_3_130_30.ipynb`](notebooks/etape10_3_130_30.ipynb).
-
-**Pourquoi après la 10.2 :**
-- Le long-short de la 10.2 perdait l'exposition au marché, seule source de performance sur 2012-2026.
-- Idée : garder le portefeuille de l'étape 9 et ajouter une **petite** vente à découvert, réservée aux pires scores. On profite des mauvais scores sans renoncer au marché.
-- Les anomalies seraient plus fortes côté vente (Stambaugh, Yu et Yuan, 2012), et vendre peu limite le risque de vendre une action qui flambe : la plupart des actions font moins bien que l'indice, une poignée fait l'essentiel de la hausse (Bessembinder, 2018).
-- C'est le format 130/30 utilisé par les gérants (Clarke, de Silva et Thorley, 2002).
-
-**La règle**, pour 100 $ de capital (tout le reste est identique à l'étape 9) :
-- **130 $ achetés** : le portefeuille de l'étape 9 (30 % meilleurs scores, tampon à 40 %, poids ∝ capi × (1 + S), plafond 10 %). Environ 141 actions.
-- **30 $ vendus** : les 10 % plus mauvais scores (tampon à 15 %), poids ∝ capi × (1 − S), plafond 10 %. Environ 49 actions.
-- Exposition nette au marché : 100 %, comme le long-only.
-- **Financement** : l'argent de la vente reste chez le courtier, qui prête les 30 $ achetés en plus. Coûts : 0,10 % par dollar échangé, 0,25 % par an pour emprunter les titres vendus, 0,50 % par an de marge sur le prêt, ces deux derniers sur les 30 $.
-
-**Résultats** (mars 2012 à août 2026, nets de frais) :
-
-| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
-|---|---:|---:|---:|---:|---:|
-| Long-only équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
-| Long-only ERC (étape 9) | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
-| 130/30 équipondéré | 14,9 % | 17,5 % | 0,80 | −32,2 % | 472 % |
-| 130/30 ERC | 13,6 % | 16,7 % | 0,75 | −25,5 % | 416 % |
-| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | |
-
-![Stratégie 130/30 contre long-only](docs/figures/strategie_130_30.png)
-
-- **Le 130/30 fait un peu moins bien que le long-only** : −0,3 % par an (équipondéré, $t$ = −0,3) et −0,8 % (ERC, $t$ = −0,9). Écarts non significatifs, mais le Sharpe baisse d'environ 0,1, car le risque monte (volatilité +1,5 point).
-- **La raison : les pires scores n'ont pas sous-performé.** Les actions vendues ont rapporté 16,0 % (équipondéré) et 16,7 % par an (ERC), plus que l'univers (15,1 %). Vendre ces actions a coûté 0,3 à 0,5 % par an avant frais.
-- **Les expositions augmentent comme prévu** : bêta inchangé (1,04), value, investissement et momentum environ 1,5 fois plus forts qu'en long-only. Mais ces primes sont quasi nulles depuis 2012 (étape 9.7) : les renforcer ne rapporte rien.
-- **Robustesse** :
-  - aucune sous-période n'est positive (2012-2019 comme 2020-2026) ;
-  - sans aucun frais, l'écart avec le long-only reste entre −0,4 % et +0,1 % par an ;
-  - vendre les 5, 10, 20 ou 30 % pires scores, en 120/20, 130/30 ou 150/50 : toujours négatif (−0,2 à −1,5 % par an), jamais significatif. Plus on vend, plus on perd.
-
-**À retenir** : vendre seulement les très mauvais scores ne change pas la conclusion. Sur 2012-2026, les mauvais scores n'ont pas été de mauvaises actions : il n'y avait rien à gagner à les vendre, et le 130/30 ajoute du risque et des frais pour rien.
+**À retenir** : la volatilité des facteurs est nettement prévisible, et le GARCH la prévoit bien mieux que l'historique sur 60 mois. Dans l'allocation, cela donne une petite amélioration régulière, mais pas significative sur 14,5 ans. Les poids entre facteurs comptent moins que les primes elles-mêmes, quasi nulles depuis 2012.
 
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
+- Barroso P., Santa-Clara P. (2015), Momentum Has Its Moments, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
-- Bessembinder H. (2018), Do Stocks Outperform Treasury Bills?, *Journal of Financial Economics*.
+- Bollerslev T. (1986), Generalized Autoregressive Conditional Heteroskedasticity, *Journal of Econometrics*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
 - Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
-- Clarke R., de Silva H., Thorley S. (2002), Portfolio Constraints and the Fundamental Law of Active Management, *Financial Analysts Journal*.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
-- D'Avolio G. (2002), The Market for Borrowing Stock, *Journal of Financial Economics*.
+- Diebold F., Mariano R. (1995), Comparing Predictive Accuracy, *Journal of Business and Economic Statistics*.
+- Engle R. (1982), Autoregressive Conditional Heteroscedasticity with Estimates of the Variance of United Kingdom Inflation, *Econometrica*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
 - Frazzini A., Pedersen L. (2014), Betting Against Beta, *Journal of Financial Economics*.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
+- J.P. Morgan (1996), *RiskMetrics: Technical Document*, 4e édition.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
 - Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
 - Maillard S., Roncalli T., Teïletche J. (2010), The Properties of Equally Weighted Risk Contribution Portfolios, *Journal of Portfolio Management*.
+- Mincer J., Zarnowitz V. (1969), The Evaluation of Economic Forecasts, dans *Economic Forecasts and Expectations*, NBER.
+- Moreira A., Muir T. (2017), Volatility-Managed Portfolios, *Journal of Finance*.
+- Patton A. (2011), Volatility Forecast Comparison Using Imperfect Volatility Proxies, *Journal of Econometrics*.
 - Politis D., Romano J. (1994), The Stationary Bootstrap, *Journal of the American Statistical Association*.
 - Roncalli T. (2017), *Alternative Risk Premia: What Do We Know?*, Amundi Working Paper WP-061-2017. [Lien](https://research-center.amundi.com/files/nuxeo/dl/e8c7f3a3-511c-4b68-a2fa-34d168f6a03d)
 - Rosenberg B., Reid K., Lanstein R. (1985), Persuasive Evidence of Market Inefficiency, *Journal of Portfolio Management*.
 - Sharpe W. (1964), Capital Asset Prices: A Theory of Market Equilibrium under Conditions of Risk, *Journal of Finance*.
-- Stambaugh R., Yu J., Yuan Y. (2012), The Short of It: Investor Sentiment and Anomalies, *Journal of Financial Economics*.
 - Kenneth French, *Data Library* : https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/data_library.html
