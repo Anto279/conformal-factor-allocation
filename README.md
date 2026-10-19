@@ -1136,12 +1136,93 @@ Fin de chaque mois : $\Sigma_t = D_t C_t D_t$, avec $D_t$ les volatilités prév
 
 **À retenir** : la volatilité des facteurs est nettement prévisible, et le GARCH la prévoit bien mieux que l'historique sur 60 mois. Dans l'allocation, cela donne une petite amélioration régulière, mais pas significative sur 14,5 ans. Les poids entre facteurs comptent moins que les primes elles-mêmes, quasi nulles depuis 2012.
 
+### 10.3 Un panier par facteur : mélanger plutôt qu'intégrer
+
+Code : [`notebooks/etape10_3_paniers_par_facteur.ipynb`](notebooks/etape10_3_paniers_par_facteur.ipynb).
+
+**Pourquoi :**
+- Jusqu'ici, on **intègre** les facteurs : un seul score par action, $S = \sum_k w_k z_k$, puis un seul portefeuille. Les poids ERC ne servent qu'à pondérer des z-scores.
+- L'autre approche est de **mélanger** : un panier d'actions par facteur, puis on répartit l'argent entre les paniers. Les poids ERC deviennent alors de l'argent réellement investi dans chaque facteur : c'est l'allocation en deux étages de l'étape 7, prise au pied de la lettre.
+- C'est un débat ouvert chez les gérants multi-facteurs :
+  - l'intégration donnerait plus d'exposition aux facteurs pour le même écart de suivi (Bender et Wang, 2016 ; Fitzgibbons et al., 2017) ;
+  - les deux approches se vaudraient quand les inclinaisons sont modestes (Ghayur, Heaney et Platt, 2018) ;
+  - le mélange est plus simple à expliquer à un client.
+- On le tranche ici sur nos données, **toutes choses égales par ailleurs** : mêmes actions, mêmes z-scores, mêmes règles, mêmes poids GARCH-ERC qu'en 10.2.
+
+**Comment :**
+1. **Cinq paniers**, un par facteur (SMB, HML, RMW, CMA, Mom). Pour le facteur $k$, on applique la règle de l'étape 9 à son seul z-score $z_k$ :
+   - les 30 % meilleures actions sur $z_k$, gardées tant qu'elles restent dans les 40 % meilleures ;
+   - poids dans le panier $\propto \text{capitalisation} \times (1 + z_k)$, plafond de 10 % par action.
+2. **Budget de chaque panier** : le poids GARCH-ERC du facteur de French correspondant (étape 10.2).
+3. **Portefeuille final** : $w_i = \sum_k b_k\, w^{(k)}_i$. Une action présente dans plusieurs paniers additionne ses poids. Le plafond de 10 % reste respecté.
+4. Backtest, frais (0,10 % par dollar échangé) et tests identiques à l'étape 9.
+
+**Le budget doit porter sur le risque actif :**
+- Les cinq paniers long-only sont dominés par le marché. Leurs rendements sont corrélés à 0,82 en moyenne, et un ERC calculé dessus donne 18 à 22 % à chacun : il ne voit pas les différences de risque entre facteurs.
+- Ce qui différencie les paniers, c'est leur rendement **actif** (panier moins univers). Ces rendements actifs ne sont presque pas corrélés entre eux (0,02 en moyenne).
+- Les facteurs de French mesurent justement ce pari actif, sans le marché, et remontent à 1963, ce qui laisse assez d'historique pour le GARCH. On les utilise donc pour fixer les budgets. Un ERC directement sur les rendements actifs des paniers est testé en robustesse.
+
+**Les actions les plus souvent présentes** (part des mois dans le panier, et poids moyen dans le panier) :
+
+| Panier | Actions les plus présentes |
+|---|---|
+| SMB (petites) | CenterPoint Energy, Textron, Darden, Masco, NiSource : 100 % des mois, environ 0,7 % chacune |
+| HML (value) | JPMorgan (7,2 %), Bank of America (7,2 %), Citigroup (5,1 %), Wells Fargo (4,5 %), Goldman Sachs (2,3 %) : 100 % des mois |
+| RMW (rentables) | Apple (9,7 %), Mastercard (4,0 %), PepsiCo (1,9 %), Accenture (1,2 %), Paychex : 100 % des mois |
+| CMA (investissent peu) | General Electric (96 %, 3,9 %), Mondelez (90 %), Johnson Controls (82 %), Altria (79 %), AIG (79 %) |
+| Mom (momentum) | Cintas (74 %), Nvidia (68 %, 4,8 %), KLA (61 %), Netflix (61 %), Microsoft (60 %, 8,2 %) |
+
+- **HML est un panier de banques** : les quatre plus grandes banques américaines y sont tout le temps et pèsent un quart du panier.
+- **RMW est dominé par Apple**, presque toujours au plafond de 10 %.
+- **SMB contient les plus petites actions du S&P 500**, avec des poids faibles et répartis (les 10 premières ne pèsent que 9 % du panier).
+- **Mom tourne le plus** : aucune action n'y est plus de 74 % du temps, et la tech domine (Nvidia, Microsoft, semi-conducteurs).
+- **Recouvrement** : 39 % des actions détenues ne sont que dans un panier, 40 % dans deux et 21 % dans trois ou plus. HML et RMW ne partagent presque rien (5 %).
+
+**Résultats** (mars 2012 à août 2026, nets de frais) :
+
+| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Écart de suivi | Rotation annuelle |
+|---|---:|---:|---:|---:|---:|---:|
+| Intégré équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 7,2 % | 315 % |
+| Intégré GARCH-ERC (étape 10.2) | 15,5 % | 15,1 % | 0,92 | −22,5 % | 5,9 % | 333 % |
+| Mélange équipondéré | 14,5 % | 14,6 % | 0,90 | −24,6 % | 3,7 % | 136 % |
+| **Mélange GARCH-ERC** | **14,6 %** | **14,5 %** | **0,91** | **−22,6 %** | **3,1 %** | **153 %** |
+| Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | | |
+| SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | | |
+
+![Mélange contre intégré](docs/figures/paniers_backtest.png)
+
+- **Le mélange fait un peu moins bien que l'intégré** : −0,85 % par an avec les poids GARCH-ERC ($t = -0{,}7$) et −1,1 % en équipondéré ($t = -1{,}0$). Ce n'est pas significatif, et les Sharpe sont quasi identiques (écart de −0,02).
+- **Le mélange colle beaucoup plus à l'indice** : environ 367 actions au lieu de 140, un écart de suivi divisé par deux (3,1 % contre 5,9 %) et une rotation divisée par deux (153 % contre 333 %).
+- **Contre l'univers** : −0,3 % par an, $t = -0{,}4$. Toujours aucune surperformance démontrée.
+
+![Expositions](docs/figures/paniers_expositions.png)
+
+- **Le cœur du débat : le mélange dilue les expositions.** La somme des cinq expositions de style tombe de 0,65 (intégré) à 0,30 (mélange). Le momentum disparaît presque (0,15 contre 0,03) : les paniers value et investissement achètent des actions en retard, qui annulent le panier momentum.
+- **Par point d'écart de suivi, les deux se valent** : 0,10 d'exposition pour le mélange, 0,11 pour l'intégré. Avec des inclinaisons aussi modestes, on retrouve le résultat de Ghayur et al. (2018) : l'intégration ne donne pas plus d'exposition par unité de risque actif, elle prend simplement plus de risque actif.
+
+**L'ERC devient-il vraiment « réel » ?** Pas avec les budgets de French. Contributions réalisées au risque actif du portefeuille :
+
+| | SMB | HML | RMW | CMA | Mom |
+|---|---:|---:|---:|---:|---:|
+| Budget GARCH-ERC moyen | 22 % | 14 % | 30 % | 17 % | 18 % |
+| Contribution au risque actif | 45 % | 39 % | −1 % | 19 % | −2 % |
+
+- Les paniers SMB et HML s'écartent beaucoup de l'indice (volatilité active de 8 % et 11 % par an). Le panier RMW, plein de grandes capitalisations comme Apple, reste proche de l'indice (3 %), et sa contribution est même légèrement négative. La volatilité d'un facteur long-short de French ne dit donc pas combien de risque actif son panier long-only ajoute.
+- **Robustesse : ERC sur les rendements actifs des paniers eux-mêmes** (36 derniers mois, donc à partir de mars 2015). Les budgets changent nettement (RMW 36 %, SMB 12 %, HML 9 %), et les contributions deviennent beaucoup plus égales (9 à 25 %). L'écart de suivi tombe à 2,5 %. Le rendement ne change presque pas : +0,4 % par an face au mélange GARCH-ERC ($t = 0{,}8$), et +0,1 % face à l'intégré.
+
+**Robustesse :**
+- **Sous-périodes** : en 2012-2019, le mélange GARCH-ERC perd 2,1 % par an face à l'intégré ($t = -2{,}5$), car les facteurs payaient encore un peu et l'intégré y était plus exposé. En 2020-2026, il gagne 0,6 % ($t = 0{,}3$).
+- **Frais** : l'écart se réduit avec le niveau des frais, parce que le mélange tourne deux fois moins. Il passe de −1,0 % par an sans frais à −0,1 % avec 0,50 % par dollar échangé.
+
+**À retenir** : sur nos données, mélanger ne bat pas intégrer et ne fait pas significativement moins bien. Le mélange est un intégré « en plus doux » : deux fois moins d'écart de suivi, de rotation et d'exposition aux facteurs, pour la même exposition par unité de risque actif. Pour que l'ERC égalise vraiment le risque entre paniers, il faut le calculer sur leurs rendements actifs, pas sur les facteurs de French.
+
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
 - Banz R. (1981), The Relationship Between Return and Market Value of Common Stocks, *Journal of Financial Economics*.
 - Barroso P., Santa-Clara P. (2015), Momentum Has Its Moments, *Journal of Financial Economics*.
 - Basu S. (1977), Investment Performance of Common Stocks in Relation to Their Price-Earnings Ratios, *Journal of Finance*.
+- Bender J., Wang T. (2016), Can the Whole Be More Than the Sum of the Parts? Bottom-Up versus Top-Down Multifactor Portfolio Construction, *Journal of Portfolio Management*.
 - Bollerslev T. (1986), Generalized Autoregressive Conditional Heteroskedasticity, *Journal of Econometrics*.
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
 - Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
@@ -1150,7 +1231,9 @@ Fin de chaque mois : $\Sigma_t = D_t C_t D_t$, avec $D_t$ les volatilités prév
 - Engle R. (1982), Autoregressive Conditional Heteroscedasticity with Estimates of the Variance of United Kingdom Inflation, *Econometrica*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
+- Fitzgibbons S., Friedman J., Pomorski L., Serban L. (2017), Long-Only Style Investing: Don't Just Mix, Integrate, *Journal of Investing*.
 - Frazzini A., Pedersen L. (2014), Betting Against Beta, *Journal of Financial Economics*.
+- Ghayur K., Heaney R., Platt S. (2018), Constructing Long-Only Multifactor Strategies: Portfolio Blending vs. Signal Blending, *Financial Analysts Journal*.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
 - J.P. Morgan (1996), *RiskMetrics: Technical Document*, 4e édition.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
