@@ -1048,55 +1048,48 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 - **Contre l'univers, les deux restent derrière** : −1,2 % et −1,4 % par an, non significatif. La période 2017-2026 est la plus défavorable aux facteurs de style.
 - **Conclusion** : le résultat de l'étape 9 ne dépend pas de la source des volatilités et corrélations. Changer les poids entre facteurs ne suffit pas quand les facteurs eux-mêmes ne sont pas rémunérés.
 
-### 10.2 Long-short sur les facteurs de Fama et French
+### 10.2 La même allocation, en long-short
+
+Tout est repris de l'étape 9 : mêmes actions du S&P 500, mêmes z-scores, mêmes scores finaux (équipondéré et ERC), même zone tampon, même plafond, mêmes frais. Une seule chose change : on **vend à découvert** les actions au plus mauvais score. Code : [`notebooks/etape10_2_long_short.ipynb`](notebooks/etape10_2_long_short.ipynb).
 
 **Pourquoi tester ça :**
-- En long-only (étape 9), la volatilité du portefeuille vient surtout du marché (bêta de 1,04). Les facteurs ne font qu'**incliner** le choix des actions, et l'ERC ne pilote qu'un score.
-- En long-short, le portefeuille **est** un panier de facteurs. L'ERC agit alors directement sur son risque : c'est le cadre où la méthode a été pensée (étape 7).
-- Les facteurs de French existent depuis 1963 : on peut tester sur 58 ans au lieu de 14.
+- En long-only, on ne peut pas tirer parti des **mauvais scores** : au mieux, on ne détient pas l'action. La moitié du signal est perdue.
+- Le long-only reste exposé au marché (bêta de 1,04), qui explique presque toute sa performance. Le long-short isole le **pari sur les facteurs** : c'est la façon dont Fama et French construisent leurs facteurs.
+- On mesure donc directement ce que rapportent nos scores, sans l'effet du marché.
 
-**Ce qui change dans la méthode d'allocation :**
+**Ce qui change dans l'allocation :**
 
 | | Long-only (étape 9) | Long-short (10.2) |
 |---|---|---|
-| Ce qu'on achète | les 30 % d'actions au meilleur score | chaque facteur : 30 % meilleures actions achetées, 30 % moins bonnes vendues à découvert |
-| Rôle des poids ERC | pondérer les z-scores dans un score unique | répartir le portefeuille entre les 5 facteurs |
-| Exposition au marché | bêta ≈ 1 | proche de 0 |
-| Exposition aux facteurs | diluée (HML 0,39, RMW ≈ 0) | complète : chaque facteur reçoit son poids |
-| Rendement obtenu | marché + petit écart | primes des facteurs seules |
-| Contraintes | aucune | vente à découvert, coût d'emprunt des titres, rotation plus forte |
+| Actions achetées | 30 % meilleurs scores, poids ∝ capi × (1 + S) | identique |
+| Actions vendues | aucune | 30 % plus mauvais scores, poids ∝ capi × (1 − S) : plus le score est mauvais, plus on vend |
+| Zone tampon et plafond | 40 %, 10 % par action | identiques, sur chaque jambe |
+| Montants | 100 % investi | 1 $ acheté pour 1 $ vendu ; le capital reste placé au taux sans risque |
+| Exposition au marché | bêta ≈ 1 | bêta ≈ 0 |
+| Frais | 0,10 % par dollar échangé | idem sur les deux jambes, plus 0,25 % par an pour emprunter les titres vendus (tarif courant des grandes capitalisations, D'Avolio, 2002) |
 
-C'est la voie « mix » de l'étape 7.3 : un portefeuille par facteur, puis une allocation entre eux. Le long-only de l'étape 9 suivait la voie « intégrée ».
+Ces poids suivent la construction de Fama et French (deux jambes de 30 %, pondérées par la capitalisation), avec en plus l'inclinaison par le score. La pondération par capitalisation limite le poids des petites actions, plus chères à échanger et à emprunter.
 
-**Méthode** (code : [`notebooks/etape10_2_long_short.ipynb`](notebooks/etape10_2_long_short.ipynb)) :
-- Chaque mois, poids des 5 facteurs : 20 % chacun, ou ERC sur la covariance des 60 mois précédents.
-- **Frais** : les facteurs de French sont calculés sans frais. On mesure la rotation de chaque facteur sur nos facteurs reconstruits (étape 8.4) et on applique 0,10 % par dollar échangé, comme à l'étape 9. Le momentum coûte le plus (1,2 % par an), les autres de 0,2 à 0,3 %. C'est une estimation basse : le coût d'emprunt des titres vendus et les petites capitalisations, plus chères à échanger, ne sont pas comptés.
-- Un portefeuille long-short n'immobilise pas de capital : son rendement se compare au **rendement actif** du long-only (stratégie − univers), qui est aussi un pari pur sur les facteurs.
+**Résultats** (mars 2012 à août 2026, nets de frais) :
 
-**Résultats sur la période de l'étape 9** (mars 2012 à août 2026, nets de frais) :
-
-| | Rendement annuel | Volatilité | Sharpe | $t$ | Perte maximale |
+| | Rendement annuel | Volatilité | Sharpe | Perte maximale | Rotation annuelle |
 |---|---:|---:|---:|---:|---:|
-| Long-short équipondéré | +0,1 % | 4,6 % | 0,03 | 0,11 | −16,5 % |
-| Long-short ERC | +0,2 % | 4,0 % | 0,04 | 0,13 | −14,3 % |
-| Long-only score équipondéré (actif) | +0,8 % | 7,2 % | 0,11 | 0,38 | −24,7 % |
-| Long-only score ERC (actif) | −0,1 % | 6,4 % | −0,02 | −0,07 | −33,2 % |
+| Long-only équipondéré (étape 9) | 15,6 % | 15,8 % | 0,90 | −28,2 % | 315 % |
+| Long-only ERC (étape 9) | 14,7 % | 15,4 % | 0,87 | −23,2 % | 278 % |
+| Long-short équipondéré | 0,7 % | 10,6 % | −0,03 | −32,4 % | 460 % |
+| Long-short ERC | 0,0 % | 9,4 % | −0,13 | −38,5 % | 404 % |
+| SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | |
 
-**Sur tout l'historique** (juillet 1968 à août 2026, nets de frais) :
+![Long-short contre long-only](docs/figures/long_short_backtest.png)
 
-| | Période | Rendement annuel | Volatilité | Sharpe | $t$ | Perte maximale |
-|---|---|---:|---:|---:|---:|---:|
-| Long-short équipondéré | 1968-2011 | +4,2 % | 4,7 % | 0,90 | 5,19 | −13,9 % |
-| | 2012-2026 | +0,1 % | 4,6 % | 0,03 | 0,11 | −16,5 % |
-| Long-short ERC | 1968-2011 | +3,8 % | 4,1 % | 0,93 | 5,33 | −10,8 % |
-| | 2012-2026 | +0,2 % | 4,0 % | 0,04 | 0,13 | −14,3 % |
+- **Le long-short ne rapporte rien.** Au-dessus du taux sans risque : −0,4 % par an (équipondéré) et −1,2 % (ERC), avec un $t$ de −0,1 et −0,5. Avant frais, les actions achetées rapportent à peu près autant que les actions vendues (16,2 % contre 15,8 % par an pour l'équipondéré).
+- **Le pari est bien celui qu'on voulait** : bêta de marché quasi nul (0,03 à 0,04), expositions nettes à la taille (0,33), à la value (0,32 à 0,55), à l'investissement (0,26 à 0,30) et au momentum (0,24 à 0,26). Ces expositions sont plus fortes qu'en long-only (taille 0,33 contre 0,10, investissement 0,26-0,30 contre 0,15-0,19). Mais elles portent sur des primes quasi nulles depuis 2012 (étape 9.7) : les doubler ne rapporte rien.
+- **Le long-only fait nettement mieux**, avec un Sharpe plus élevé de 0,9 à 1,0. L'écart est significatif : l'intervalle à 95 % va de −1,5 à −0,5. Ce n'est pas un mérite des facteurs : le long-only a profité du marché (13 % par an), que le long-short neutralise.
+- **Risque élevé pour un portefeuille neutre au marché** : volatilité de 9 à 11 %, perte maximale de 32 à 38 %. Les deux jambes ne se compensent pas toujours (2020, 2025).
+- **Plus de frais** : rotation de 400 à 460 % par an, et coût d'emprunt. Même sans aucun frais, l'excédent ne dépasserait pas +0,4 % par an.
+- **Robustesse** : aucune sous-période n'est significative. L'ERC fait +0,8 % par an en 2012-2019, puis −3,6 % en 2020-2026.
 
-![Long-short](docs/figures/long_short_facteurs.png)
-
-- **Sur 2012-2026, le long-short ne fait pas mieux que le long-only** : rendement quasi nul, car les primes elles-mêmes sont quasi nulles (étape 9.7). Le long-short a un risque plus faible (volatilité de 4 à 5 % contre 6 à 7 %), mais rien à rémunérer.
-- **Avant 2012, la même méthode marchait très bien** : Sharpe de 0,9 net de frais, $t$ supérieur à 5. Le résultat de l'étape 9 tient à la période, pas à la façon de construire le portefeuille.
-- **L'ERC fait ce qu'on attend de lui en long-short** : sur 1968-2026, même Sharpe que l'équipondération (0,69 contre 0,67), mais volatilité plus faible (4,1 % contre 4,7 %) et perte maximale réduite (−14 % contre −20 %). Il ne crée pas de rendement, il **réduit le risque** pour le même rendement par unité de risque.
-- **Limites** : coût d'emprunt des titres non compté, frais estimés sur le S&P 500 alors que French inclut des petites capitalisations. Les résultats nets sont donc plutôt optimistes.
+**À retenir** : vendre à découvert les mauvais scores ne sauve pas la stratégie sur 2012-2026. Le long-short confirme l'étape 9 de façon plus nette : nos scores captent bien les facteurs voulus, mais ces facteurs n'ont pas été rémunérés sur la période.
 
 ## Références
 
@@ -1106,6 +1099,7 @@ C'est la voie « mix » de l'étape 7.3 : un portefeuille par facteur, puis une 
 - Carhart M. (1997), On Persistence in Mutual Fund Performance, *Journal of Finance*.
 - Chow G. (1960), Tests of Equality Between Sets of Coefficients in Two Linear Regressions, *Econometrica*.
 - Daniel K., Moskowitz T. (2016), Momentum Crashes, *Journal of Financial Economics*.
+- D'Avolio G. (2002), The Market for Borrowing Stock, *Journal of Financial Economics*.
 - Fama E., French K. (1993), Common Risk Factors in the Returns on Stocks and Bonds, *Journal of Financial Economics*.
 - Fama E., French K. (2015), A Five-Factor Asset Pricing Model, *Journal of Financial Economics*.
 - Frazzini A., Pedersen L. (2014), Betting Against Beta, *Journal of Financial Economics*.
