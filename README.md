@@ -1048,6 +1048,56 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 - **Contre l'univers, les deux restent derrière** : −1,2 % et −1,4 % par an, non significatif. La période 2017-2026 est la plus défavorable aux facteurs de style.
 - **Conclusion** : le résultat de l'étape 9 ne dépend pas de la source des volatilités et corrélations. Changer les poids entre facteurs ne suffit pas quand les facteurs eux-mêmes ne sont pas rémunérés.
 
+### 10.2 Long-short sur les facteurs de Fama et French
+
+**Pourquoi tester ça :**
+- En long-only (étape 9), la volatilité du portefeuille vient surtout du marché (bêta de 1,04). Les facteurs ne font qu'**incliner** le choix des actions, et l'ERC ne pilote qu'un score.
+- En long-short, le portefeuille **est** un panier de facteurs. L'ERC agit alors directement sur son risque : c'est le cadre où la méthode a été pensée (étape 7).
+- Les facteurs de French existent depuis 1963 : on peut tester sur 58 ans au lieu de 14.
+
+**Ce qui change dans la méthode d'allocation :**
+
+| | Long-only (étape 9) | Long-short (10.2) |
+|---|---|---|
+| Ce qu'on achète | les 30 % d'actions au meilleur score | chaque facteur : 30 % meilleures actions achetées, 30 % moins bonnes vendues à découvert |
+| Rôle des poids ERC | pondérer les z-scores dans un score unique | répartir le portefeuille entre les 5 facteurs |
+| Exposition au marché | bêta ≈ 1 | proche de 0 |
+| Exposition aux facteurs | diluée (HML 0,39, RMW ≈ 0) | complète : chaque facteur reçoit son poids |
+| Rendement obtenu | marché + petit écart | primes des facteurs seules |
+| Contraintes | aucune | vente à découvert, coût d'emprunt des titres, rotation plus forte |
+
+C'est la voie « mix » de l'étape 7.3 : un portefeuille par facteur, puis une allocation entre eux. Le long-only de l'étape 9 suivait la voie « intégrée ».
+
+**Méthode** (code : [`notebooks/etape10_2_long_short.ipynb`](notebooks/etape10_2_long_short.ipynb)) :
+- Chaque mois, poids des 5 facteurs : 20 % chacun, ou ERC sur la covariance des 60 mois précédents.
+- **Frais** : les facteurs de French sont calculés sans frais. On mesure la rotation de chaque facteur sur nos facteurs reconstruits (étape 8.4) et on applique 0,10 % par dollar échangé, comme à l'étape 9. Le momentum coûte le plus (1,2 % par an), les autres de 0,2 à 0,3 %. C'est une estimation basse : le coût d'emprunt des titres vendus et les petites capitalisations, plus chères à échanger, ne sont pas comptés.
+- Un portefeuille long-short n'immobilise pas de capital : son rendement se compare au **rendement actif** du long-only (stratégie − univers), qui est aussi un pari pur sur les facteurs.
+
+**Résultats sur la période de l'étape 9** (mars 2012 à août 2026, nets de frais) :
+
+| | Rendement annuel | Volatilité | Sharpe | $t$ | Perte maximale |
+|---|---:|---:|---:|---:|---:|
+| Long-short équipondéré | +0,1 % | 4,6 % | 0,03 | 0,11 | −16,5 % |
+| Long-short ERC | +0,2 % | 4,0 % | 0,04 | 0,13 | −14,3 % |
+| Long-only score équipondéré (actif) | +0,8 % | 7,2 % | 0,11 | 0,38 | −24,7 % |
+| Long-only score ERC (actif) | −0,1 % | 6,4 % | −0,02 | −0,07 | −33,2 % |
+
+**Sur tout l'historique** (juillet 1968 à août 2026, nets de frais) :
+
+| | Période | Rendement annuel | Volatilité | Sharpe | $t$ | Perte maximale |
+|---|---|---:|---:|---:|---:|---:|
+| Long-short équipondéré | 1968-2011 | +4,2 % | 4,7 % | 0,90 | 5,19 | −13,9 % |
+| | 2012-2026 | +0,1 % | 4,6 % | 0,03 | 0,11 | −16,5 % |
+| Long-short ERC | 1968-2011 | +3,8 % | 4,1 % | 0,93 | 5,33 | −10,8 % |
+| | 2012-2026 | +0,2 % | 4,0 % | 0,04 | 0,13 | −14,3 % |
+
+![Long-short](docs/figures/long_short_facteurs.png)
+
+- **Sur 2012-2026, le long-short ne fait pas mieux que le long-only** : rendement quasi nul, car les primes elles-mêmes sont quasi nulles (étape 9.7). Le long-short a un risque plus faible (volatilité de 4 à 5 % contre 6 à 7 %), mais rien à rémunérer.
+- **Avant 2012, la même méthode marchait très bien** : Sharpe de 0,9 net de frais, $t$ supérieur à 5. Le résultat de l'étape 9 tient à la période, pas à la façon de construire le portefeuille.
+- **L'ERC fait ce qu'on attend de lui en long-short** : sur 1968-2026, même Sharpe que l'équipondération (0,69 contre 0,67), mais volatilité plus faible (4,1 % contre 4,7 %) et perte maximale réduite (−14 % contre −20 %). Il ne crée pas de rendement, il **réduit le risque** pour le même rendement par unité de risque.
+- **Limites** : coût d'emprunt des titres non compté, frais estimés sur le S&P 500 alors que French inclut des petites capitalisations. Les résultats nets sont donc plutôt optimistes.
+
 ## Références
 
 - Bailey D., López de Prado M. (2014), The Deflated Sharpe Ratio: Correcting for Selection Bias, Backtest Overfitting and Non-Normality, *Journal of Portfolio Management*.
