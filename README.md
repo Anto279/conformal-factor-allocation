@@ -1283,7 +1283,7 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
   - **ERC** : contributions au risque égales, volatilités et corrélations sur 60 mois (étape 9) ;
   - **ERC GARCH** : même chose, avec la volatilité du mois suivant prévue par GARCH (étape 10.2) ;
   - **ERC GARCH + CP** : ERC GARCH, avec les paris réduits quand la borne de perte conforme dépasse 2,5 % par mois (étape 11).
-- Deux terrains : **nos actions du S&P 500** (2012-2026, nettes de frais), puis **les facteurs de Fama et French** (1975-2026).
+- Deux terrains : **nos actions du S&P 500** (2012-2026, nettes de frais), puis **les facteurs de Fama et French** (1975-2026), d'abord sans frais, puis avec des frais estimés sur nos actions (12.3).
 - Code : [`notebooks/etape12_comparaison_finale.ipynb`](notebooks/etape12_comparaison_finale.ipynb).
 
 ### 12.1 Sur notre univers d'actions (mars 2012 - août 2026)
@@ -1336,7 +1336,7 @@ Rendement actif annuel contre l'univers, par sous-période :
   - Chaque facteur est autofinancé (achat des meilleures actions, vente des moins bonnes), donc l'ajouter ne demande pas de capital : il ajoute seulement un **pari actif**, de la même façon que nos z-scores inclinent l'indice.
 - Les cinq facteurs sont SMB, HML, RMW, CMA et Mom (le marché est déjà le benchmark).
 - Début en 1975 : GARCH a besoin de dix ans d'historique (1963-1972), puis la CP de 24 mois de calibration. 620 mois.
-- **Sans frais**, et les facteurs de French contiennent des petites capitalisations et des positions vendeuses : c'est un portefeuille théorique, qui mesure ce que vaut chaque méthode d'allocation quand les primes existent.
+- **Sans frais** dans cette partie, et les facteurs de French contiennent des petites capitalisations et des positions vendeuses : c'est un portefeuille théorique, qui mesure ce que vaut chaque méthode d'allocation quand les primes existent. Les frais sont ajoutés en 12.3.
 
 Poids moyens des facteurs :
 
@@ -1376,7 +1376,7 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 - **Bas (perte depuis le plus haut)** : en 2000-2003, les portefeuilles perdent environ 20 % contre 45 % pour le marché (gris), car les facteurs value et rentabilité montent pendant la baisse. En 2008, la protection est faible (−45 % contre −50 %).
 
 **Interprétation :**
-- **Sur 50 ans, toutes les méthodes battent le marché nettement** : +3 à +3,6 % par an, t entre 4,6 et 5,5. Le Sharpe passe de 0,59 à 0,80-0,85. C'est la prime des facteurs documentée par Fama et French.
+- **Sur 50 ans, toutes les méthodes battent le marché nettement, avant frais** : +3 à +3,6 % par an, t entre 4,6 et 5,5. Le Sharpe passe de 0,59 à 0,80-0,85. C'est la prime des facteurs documentée par Fama et French.
 - **Entre méthodes, l'ordre suit le risque pris** :
   - l'équipondéré a le plus de rendement actif (+3,6 %) mais aussi le plus d'écart de suivi (4,8 %) et 21 mois hors budget ;
   - l'ERC et l'ERC GARCH réduisent l'écart de suivi (4,2 %) et améliorent le ratio d'information (0,75 → 0,79 → 0,82) ; GARCH apporte un petit gain régulier, comme en 10.2 ;
@@ -1384,12 +1384,78 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 - **Le Sharpe total ne suit pas** (0,80 pour la CP contre 0,84-0,85) : le risque du portefeuille vient presque entièrement du marché, donc réduire le risque actif ne baisse pas la volatilité totale, alors que le rendement actif baisse.
 - **Le rapprochement avec nos actions** : sur 2012-2026, même avec les facteurs de French, le rendement actif tombe à +0,4 à +0,7 % par an (t < 0,8). L'absence de surperformance de la partie 12.1 vient donc de la **période**, pas de notre univers ni de nos méthodes.
 
-### 12.3 À retenir de l'étape 12
+### 12.3 Les facteurs de French avec des frais estimés sur nos actions
 
-- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) font gagner en ratio d'information à chaque étape.
-- **Quand elles n'existent pas (2012-2026)**, aucune méthode ne crée de rendement, sur nos actions comme sur les séries de French. Les méthodes servent alors à **contrôler le risque** : ERC GARCH + CP est la version la plus régulière, avec le plus faible écart de suivi et le moins de mauvais mois.
-- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est d'environ 0,6 point par an, l'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions).
-- **Limites** : 14,5 ans de données sur nos actions (aucune différence n'y est significative) ; séries de French sans frais, avec petites capitalisations et ventes à découvert ; même biais du survivant qu'à l'étape 8 pour l'univers d'actions.
+**Le problème :**
+- Les séries de French sont sans frais, alors que le marché (acheter et garder) ne coûte presque rien. La comparaison de la 12.2 est donc trop favorable aux stratégies.
+
+**L'estimation des frais :**
+- Dans nos backtests d'actions (12.1), chaque méthode paie 0,10 % par dollar échangé, et l'univers aussi.
+- **Coût de l'allocation par facteurs** d'une méthode, chaque mois = ses frais − les frais de l'univers. C'est ce que coûtent les paris sur les facteurs, en plus de ce que coûte déjà l'indice.
+- On prend la moyenne mensuelle sur 2012-2026 (à partir de mars 2014 pour la CP, quand le contrôle commence), et on la retire chaque mois du rendement des portefeuilles de facteurs, de 1975 à 2026.
+- L'ordre de grandeur est comparable : les paris de nos portefeuilles d'actions ont un écart de suivi de 4 à 7 %, ceux des portefeuilles de French de 3 à 5 %.
+
+| | Frais mensuels | Frais annuels | Rendement actif sans frais (French) | Multiple des frais qui annule le gain |
+|---|---:|---:|---:|---:|
+| Équipondéré | 2,5 pb | 0,30 % | +3,60 % | 11,8 |
+| ERC | 2,2 pb | 0,27 % | +3,31 % | 12,4 |
+| ERC GARCH | 2,7 pb | 0,32 % | +3,43 % | 10,7 |
+| ERC GARCH + CP | 2,5 pb | 0,30 % | +2,95 % | 9,9 |
+
+![Facteurs de French nets des frais estimés](docs/figures/final_french_frais.png)
+
+**Résultats nets des frais estimés** (1975-2026, benchmark : le marché) :
+
+| | Rendement annuel | Volatilité | Sharpe | Perte max | Rendement actif | Écart de suivi | Ratio d'information | t (Newey-West) | Pire mois relatif | Mois sous −2,5 % |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Équipondéré | 16,6 % | 15,0 % | 0,83 | −46,3 % | +3,30 % | 4,8 % | 0,69 | 4,20 | −7,2 % | 21 |
+| ERC | 16,3 % | 15,0 % | 0,81 | −46,8 % | +3,04 % | 4,2 % | 0,72 | 4,47 | −7,3 % | 11 |
+| ERC GARCH | 16,4 % | 15,0 % | 0,82 | −44,9 % | +3,11 % | 4,2 % | 0,74 | 4,67 | −8,4 % | 10 |
+| **ERC GARCH + CP** | 15,9 % | 15,1 % | 0,78 | −44,8 % | +2,65 % | **3,3 %** | **0,80** | **4,98** | **−4,4 %** | **3** |
+| Marché | 12,8 % | 15,5 % | 0,59 | −50,3 % | | | | | | |
+
+Sensibilité au niveau des frais (rendement actif annuel, t entre parenthèses) :
+
+| | Sans frais | Frais × 1 | Frais × 2 | Frais × 3 |
+|---|---:|---:|---:|---:|
+| Équipondéré | +3,60 % (4,6) | +3,30 % (4,2) | +2,99 % (3,8) | +2,69 % (3,4) |
+| ERC | +3,31 % (4,9) | +3,04 % (4,5) | +2,78 % (4,1) | +2,51 % (3,7) |
+| ERC GARCH | +3,43 % (5,2) | +3,11 % (4,7) | +2,79 % (4,2) | +2,47 % (3,7) |
+| ERC GARCH + CP | +2,95 % (5,5) | +2,65 % (5,0) | +2,36 % (4,4) | +2,06 % (3,9) |
+
+Rendement actif annuel net, par sous-période (t entre parenthèses) :
+
+| | 1975-1989 | 1990-2011 | 2012-2026 |
+|---|---:|---:|---:|
+| Équipondéré | +5,3 % (6,7) | +4,1 % (2,8) | +0,1 % (0,1) |
+| ERC | +4,0 % (6,4) | +4,3 % (3,4) | +0,2 % (0,2) |
+| ERC GARCH | +3,9 % (6,2) | +4,5 % (3,6) | +0,2 % (0,2) |
+| ERC GARCH + CP | +3,9 % (6,2) | +3,3 % (3,7) | +0,4 % (0,4) |
+
+**Lecture du graphique :**
+- **Haut** : les frais de l'allocation par facteurs, mesurés sur nos actions, restent entre 1 et 4 points de base par mois.
+  - L'ERC est le moins cher (2,2 pb) : ses poids changent lentement.
+  - L'ERC GARCH est le plus cher (2,7 pb), surtout en 2022-2024 : les volatilités prévues bougent davantage, donc les poids aussi.
+  - La CP coûte moins que l'ERC GARCH (2,5 pb) : quand elle réduit les paris, il y a moins d'actions à échanger.
+- **Milieu** : 1 $ devient environ 2 000 à 2 800 $ nets de frais, contre 500 $ pour le marché. L'écart avec le graphique sans frais est à peine visible.
+- **Bas** : les traits pleins (nets) restent proches des pointillés (sans frais). L'écart se creuse lentement, d'environ 15 points de rendement actif cumulé sur 50 ans.
+
+**Interprétation :**
+- **Les frais estimés ne changent pas la conclusion** : environ 0,3 % par an, contre un gain de 3 à 3,6 % par an. Le rendement actif net reste de +2,7 à +3,3 % par an, avec un t entre 4,2 et 5,0.
+- **Il faudrait des frais 10 à 12 fois plus élevés pour annuler le gain**. Même à 3 fois, toutes les méthodes restent significatives (t > 3,4).
+- **Le classement entre méthodes est inchangé** : les frais sont proches d'une méthode à l'autre. La CP garde le meilleur ratio d'information (0,80) et le plus faible risque actif ; l'équipondéré garde le plus fort rendement actif.
+- **Sur 2012-2026, le rendement actif net est nul** (+0,1 à +0,4 % par an, t < 0,5), comme sur nos actions.
+- **Limite de l'estimation** : nos frais viennent d'un portefeuille long-only de grandes capitalisations, très liquides. Les facteurs de French achètent et vendent à découvert, y compris des petites capitalisations, plus chères à traiter, et le momentum tourne beaucoup. Leurs vrais frais sont probablement plus élevés, d'où le tableau de sensibilité. La marge reste large : il faudrait environ 10 fois nos frais pour effacer le gain.
+
+### 12.4 À retenir de l'étape 12
+
+- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) font gagner en ratio d'information à chaque étape. **Cela tient après frais** : avec les frais mesurés sur nos actions, le gain reste de +2,7 à +3,3 % par an sur 50 ans, et il faudrait des frais environ 10 fois plus élevés pour l'effacer.
+- **Quand elles n'existent pas (2012-2026)**, aucune méthode ne crée de rendement, sur nos actions comme sur les séries de French, avec ou sans frais. Les méthodes servent alors à **contrôler le risque** : ERC GARCH + CP est la version la plus régulière, avec le plus faible écart de suivi et le moins de mauvais mois.
+- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est d'environ 0,6 point par an. L'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions). Les frais varient peu : 2,2 à 2,7 points de base par mois.
+- **Limites** :
+  - 14,5 ans de données sur nos actions : aucune différence n'y est significative ;
+  - les frais des séries de French sont estimés à partir de nos grandes capitalisations, donc probablement sous-estimés ;
+  - même biais du survivant qu'à l'étape 8 pour l'univers d'actions.
 
 ## Références
 
