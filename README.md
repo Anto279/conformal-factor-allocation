@@ -43,12 +43,12 @@ $$
 \frac{M_t}{B_t} = \frac{\sum_{\tau \ge 1} \mathbb{E}\left[Y_{t+\tau} - dB_{t+\tau}\right] / (1+r)^{\tau}}{B_t}
 $$
 
-  $M$ = capitalisation, $B$ = fonds propres comptables, $Y$ = bénéfices, $dB$ = investissement (variation des fonds propres), $r$ = rendement attendu. À tout le reste égal, $r$ est plus élevé quand le prix est bas par rapport aux fonds propres (value), quand la rentabilité est forte (RMW) et quand l'investissement est faible (CMA).
+  $M$ = capitalisation, $B$ = fonds propres comptables, $Y$ = bénéfices, $dB$ = investissement (variation des fonds propres), $r$ = rendement attendu. Toutes choses égales par ailleurs, $r$ est plus élevé quand le prix est bas par rapport aux fonds propres (value), quand la rentabilité est forte (RMW) et quand l'investissement est faible (CMA).
 
 ### 2.3 Pourquoi ce modèle ici (lien avec l'étape 1)
 
 - C'est le modèle de référence, en recherche comme en gestion : les facteurs sont publics, construits de façon transparente et disponibles depuis 1963 (bibliothèque de Kenneth French).
-- Sur des portefeuilles diversifiés, il explique l'essentiel des variations de rendement : le $R^2$ des régressions dépasse souvent 90 % (Fama et French, 1993). C'est exactement l'idée de l'étape 1 : une fois diversifié, il ne reste que des facteurs.
+- Sur des portefeuilles diversifiés, il explique l'essentiel des variations de rendement : le $R^2$ des régressions dépasse souvent 90 % (Fama et French, 1993). On retrouve l'idée de l'étape 1 : une fois diversifié, il ne reste que des facteurs.
 - Chaque facteur est lui-même un **portefeuille investissable** (long-short). On peut donc les traiter comme des actifs et allouer entre eux, avec une méthode qui n'a besoin que de leur risque (ERC).
 - Ils recouvrent les styles du processus Amundi : value (HML), momentum (MOM), qualité (proche de RMW et CMA), taille (SMB).
 
@@ -137,8 +137,8 @@ Tout le code et les résultats de cette étape sont dans le notebook [`notebooks
 | Ratio de Sharpe | 0,47 | 0,21 | 0,34 | 0,38 | 0,41 | 0,49 |
 | t-stat de la moyenne | 3,7 | **1,7** | 2,7 | 3,0 | 3,2 | 3,9 |
 | Mois positifs (%) | 60 | 50 | 54 | 56 | 52 | 62 |
-| Pire mois (%) | −23,2 (oct. 1987) | −15,5 (mars 2000) | −13,8 (mars 2020) | −18,9 (fév. 2000) | −7,1 (mai 2023) | −34,4 (avr. 2009) |
-| Meilleur mois (%) | 16,1 (oct. 1974) | 18,5 (fév. 2000) | 12,9 (janv. 2022) | 13,0 (nov. 2000) | 9,0 (fév. 2001) | 18,1 (fév. 2000) |
+| Pire mois (%) | −23,2 (oct. 1987) | −15,5 (mars 2000) | −13,8 (mars 2020) | −18,9 (févr. 2000) | −7,1 (mai 2023) | −34,4 (avr. 2009) |
+| Meilleur mois (%) | 16,1 (oct. 1974) | 18,5 (févr. 2000) | 12,9 (janv. 2022) | 13,0 (nov. 2000) | 9,0 (févr. 2001) | 18,1 (févr. 2000) |
 | Asymétrie | −0,49 | 0,36 | 0,09 | −0,24 | 0,26 | **−1,29** |
 | Kurtosis en excès | 1,7 | 3,1 | 2,2 | **10,4** | 1,3 | **9,5** |
 | Autocorrélation à 1 mois | 0,04 | 0,05 | 0,16 | 0,14 | 0,13 | 0,04 |
@@ -150,7 +150,7 @@ Rendement annualisé $= 12\,\bar r$, volatilité annualisée $= \sqrt{12}\,\hat\
 Ce qu'on en retient :
 
 - **Cinq primes sur six sont significatives** (t-stat > 2). La taille fait exception : 2,2 % par an, t-stat de 1,7, et la moitié des mois seulement sont positifs. Sur 63 ans, on ne peut pas affirmer que la prime de taille existe.
-- **Les facteurs long-short ont des Sharpe proches de celui du marché, avec deux fois moins de volatilité** (7 à 10 % par an contre 15 %). CMA a le meilleur Sharpe des facteurs de style (0,41) avec la volatilité la plus faible.
+- **Hors momentum, les facteurs long-short ont des Sharpe proches de celui du marché, avec deux fois moins de volatilité** (7 à 10 % par an contre 15 %). CMA a le meilleur Sharpe des facteurs de style (0,41) avec la volatilité la plus faible.
 - **Aucun facteur ne suit une loi normale** : le test de Jarque-Bera rejette la normalité pour les six (p-valeur < 10⁻¹³). Le momentum est le cas extrême : asymétrie de −1,29 et kurtosis de 9,5, avec une perte de 34 % en un seul mois (avril 2009). C'est l'anomalie à krachs décrite par Roncalli (2017) à l'étape 1.
 - **La kurtosis de RMW (10,4) vient presque entièrement de la bulle internet** : ses meilleur et pire mois tombent en 2000.
 - **Les pertes maximales sont longues** : −58 % sur quatorze ans pour la value (2006 à 2020), −56 % sur seize ans pour la taille. Un investisseur concentré sur un seul facteur peut attendre plus d'une décennie avant de revenir à son sommet.
@@ -160,7 +160,7 @@ Ce qu'on en retient :
 
 ![Rendement cumulé des facteurs](docs/figures/facteurs_cumules.png)
 
-- Sur 63 ans, 1 $ investi devient 45 $ avec le momentum et 44 $ avec le marché, mais seulement 3 à 7 $ avec les autres facteurs (échelle logarithmique). C'est cohérent avec leur volatilité plus faible.
+- Sur 63 ans, 1 $ investi devient 45 $ avec le momentum et 44 $ avec le marché, mais seulement 3 à 7 $ avec les autres facteurs (échelle logarithmique). C'est cohérent avec leurs rendements plus faibles (2 à 3,5 % par an).
 - Le momentum progresse régulièrement jusqu'en 2008, puis perd plus de la moitié de sa valeur en 2009, au moment du rebond des marchés. Il n'a jamais retrouvé son sommet depuis.
 - La value (HML) culmine fin 2006 et ne fait que baisser jusqu'en 2020 : c'est la « décennie perdue » de la value.
 
@@ -319,7 +319,7 @@ Le R² ajusté vaut $1 - (1-R^2)\frac{T-1}{T-k-1}$ avec $k = 6$. La volatilité 
 
 **Le portefeuille : un profil défensif et « qualité ».**
 - $\beta = 0{,}91$, mesuré très précisément (t = 58).
-- Expositions positives à HML, RMW et CMA : des entreprises établies, rentables et prudentes. L'équipondération donne aussi probablement plus de poids qu'au sein du marché aux secteurs défensifs (consommation de base, santé, services aux collectivités), face aux géants technologiques.
+- Expositions positives à HML, RMW et CMA : des entreprises établies, rentables et prudentes. L'équipondération donne aussi probablement plus de poids que le marché aux secteurs défensifs (consommation de base, santé, services aux collectivités) et moins aux géants technologiques.
 - $s \approx 0$ : ce sont de grandes capitalisations, mais l'équipondération donne autant de poids aux « petites » grandes entreprises qu'aux géants, et les deux effets se compensent.
 - **$m = -0{,}06$, une conséquence mécanique de la construction.** Rééquilibrer chaque mois vers des poids égaux revient à vendre ce qui a monté et à racheter ce qui a baissé : c'est l'inverse du momentum. On retrouve le même effet, plus fort, sur RSP ($m = -0{,}10$), alors que SPY, qui ne se rééquilibre pas, n'a quasiment pas d'exposition au momentum.
 
@@ -367,7 +367,7 @@ On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipond�
 ![R² glissant sur 3 ans](docs/figures/regression_r2_glissant.png)
 
 - Le R² d'Apple varie fortement, de 23 % (2006) à 81 % (2022). Pendant les crises (2008, 2020-2022), toutes les actions bougent ensemble avec le marché et le R² monte. En période calme, ce sont les nouvelles propres à Apple qui dominent.
-- Le R² du portefeuille reste entre 92 et 99 % jusqu'en 2024, puis baisse à 85 % fin 2026. Hypothèse, non testée ici : le marché pondéré par la capitalisation est de plus en plus concentré sur quelques géants technologiques, et un portefeuille équipondéré s'en écarte davantage.
+- Le R² du portefeuille reste entre 92 et 99 % jusqu'en 2024, puis baisse à 85 % en 2026. Hypothèse, non testée ici : le marché pondéré par la capitalisation est de plus en plus concentré sur quelques géants technologiques, et un portefeuille équipondéré s'en écarte davantage.
 
 ### 4.7 Diagnostic des résidus
 
@@ -386,7 +386,7 @@ On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipond�
 ### 4.8 À retenir de l'étape 4
 
 - Le modèle à six facteurs explique **94 % de la variance d'un portefeuille diversifié** de 107 actions, mais **seulement 37 % de celle d'Apple**.
-- La différence est le risque spécifique : 63 % de la variance d'Apple, 6 % de celle du portefeuille. Il disparaît avec la diversification, et dès 30 actions le R² dépasse 89 %.
+- La différence est le risque spécifique : 63 % de la variance d'Apple, 6 % de celle du portefeuille. Il disparaît avec la diversification, et dès 30 actions le R² atteint 89 %.
 - Les facteurs de style apportent une information réelle au-delà du marché : 10 points de R² en plus pour le portefeuille.
 - Les expositions estimées ont un sens économique : Apple est une valeur de croissance à bêta élevé, le portefeuille équipondéré est défensif et légèrement anti-momentum, par construction.
 - Conclusion pour la suite : ce qui reste dans un portefeuille diversifié, c'est le risque des facteurs. C'est donc entre ces facteurs qu'il faut répartir le risque.
@@ -443,7 +443,7 @@ En gras : significatif à 5 %. P-valeurs détaillées dans le notebook.
 
 - **Pearson détecte 11 liens sur 12, l'information mutuelle 6.** Les 6 liens détectés par l'information mutuelle sont tous détectés par Pearson. Elle ne trouve **aucun lien que Pearson aurait manqué**.
 - **Les liens forts sont vus par les deux mesures** : le marché pour les deux cibles, le momentum pour le portefeuille, HML et CMA pour Apple. Pour le marché, $\rho_I$ est proche de $|\rho|$ : le lien est essentiellement linéaire.
-- **Les liens faibles (|ρ| entre 0,15 et 0,24) échappent à l'information mutuelle**, alors qu'ils sont nets pour Pearson (p-valeurs toutes inférieures à 0,01). Deux estimations valent même exactement 0 pour Apple (RMW et Mom), bien que $|\rho|$ dépasse 0,16.
+- **Les liens faibles (|ρ| entre 0,15 et 0,24) échappent à l'information mutuelle**, alors qu'ils sont nets pour Pearson (p-valeurs toutes inférieures à 0,01). Deux estimations valent même exactement 0 pour Apple (RMW et Mom), bien que $|\rho|$ atteigne au moins 0,16.
 - **Deux couples ont un $\rho_I$ nettement au-dessus de $|\rho|$** : HML-Apple (0,35 contre 0,26) et RMW-portefeuille (0,36 contre 0,14). La partie 5.5 montre que ce surplus n'est pas significatif et ne laisse aucune trace une fois la régression estimée.
 - **Les valeurs faibles de l'information mutuelle sont instables** : selon le nombre de voisins $k$ (3, 5, 10 ou 20), l'estimation pour HML-Apple varie de 0,01 à 0,08 nat. Les valeurs fortes (marché) ne bougent presque pas.
 
@@ -585,7 +585,7 @@ On ré-estime la régression sur chaque fenêtre de 36 mois. Un bêta glissant b
 
 On compare l'écart de suivi, c'est-à-dire la volatilité annualisée de la partie non expliquée, dans deux cas : avec les bêtas estimés une fois sur 2000-2026, et avec les bêtas ré-estimés dans chaque période. On corrige du nombre de coefficients (7 contre 28), comme pour un $R^2$ ajusté.
 
-| | Bêtas constants | Bêtas par période | Baisse |
+| | Bêtas constants | Bêtas par période | Variation |
 |---|---:|---:|---:|
 | Apple | 30,1 % | 29,0 % | −3,5 % |
 | Portefeuille | 3,7 % | 3,4 % | −7,4 % |
@@ -595,7 +595,7 @@ Laisser les bêtas changer améliore l'explication, mais peu : l'essentiel du li
 ### 6.6 À retenir de l'étape 6
 
 - **Les bêtas ne sont pas parfaitement stables** : pour les deux cibles, le test joint rejette l'égalité des expositions entre les quatre périodes (p < 0,001).
-- **Ce qui est stable, c'est le bêta de marché d'un portefeuille diversifié** : entre 0,88 et 0,97 sur toutes les périodes et dans les deux régimes, et toujours dans la bande du bruit d'estimation.
+- **Ce qui est stable, c'est le bêta de marché d'un portefeuille diversifié** : entre 0,88 et 0,97 sur toutes les périodes et dans les deux régimes, et presque toujours dans la bande du bruit d'estimation.
 - **Ce qui bouge, ce sont certaines expositions de style** : HML et CMA pour le portefeuille, CMA et RMW pour Apple. Elles changent d'une époque à l'autre bien plus qu'entre marchés calmes et agités. Pour une action seule, elles suivent la vie de l'entreprise : Apple est passée d'une entreprise moyenne en forte croissance à un géant très rentable qui rachète ses actions.
 - **Une bonne partie de la variation apparente n'est que du bruit.** Sur 36 mois, un bêta glissant peut bouger beaucoup sans que le vrai bêta change. Il faut donc tester avant de conclure, d'autant qu'on fait ici de nombreux tests.
 - **Pour la partie allocation à venir** : les expositions doivent être ré-estimées régulièrement plutôt que fixées une fois pour toutes. Comme leurs variations sont lentes et en partie dues au bruit, il vaut mieux ne pas réagir à chaque mouvement de court terme.
@@ -774,11 +774,11 @@ Les volatilités varient d'un facteur trois à six dans le temps (étape 3) et l
 - **Les z-scores servent à l'étage 1.** Ils mettent sur une même échelle des caractéristiques très différentes : chaque action est mesurée par rapport aux autres actions, au même mois et souvent dans son secteur. On privilégie les z-scores les plus élevés, car ce sont les actions les plus exposées à la caractéristique que la prime rémunère.
 - **L'équipondération partage le capital, l'ERC partage le risque.** Avec des facteurs de volatilités très différentes, ce n'est pas du tout la même chose : en équipondération, les facteurs les plus volatils dominent le risque.
 - **L'ERC n'a besoin d'aucune prévision de rendement.** C'est ce qui en fait la suite logique de l'étape 1 : on alloue avec ce qu'on sait estimer, le risque.
-- **Dans ce projet**, l'étage 1 est déjà fait par Fama et French : la base de l'étape 3 fournit directement les rendements des six facteurs. La suite porte donc sur l'étage 2, l'ERC entre facteurs, comparée à l'équipondération.
+- **Dans ce projet**, l'étage 1 est d'abord fourni par Fama et French (base de l'étape 3), puis reconstruit sur le S&P 500 à l'étape 8. L'étage 2, l'ERC entre facteurs comparée à l'équipondération, est testé à partir de l'étape 9.
 
 ## Étape 8 : les z-scores des actions du S&P 500, mois par mois
 
-Les facteurs de Fama et French sont des séries toutes faites. Avant de passer à l'étage 2, on construit soi-même l'étage 1 sur des données réelles : pour chaque mois et chaque action de l'univers, les six z-scores de l'étape 7. Rien n'est encore combiné ni investi.
+Les facteurs de Fama et French sont des séries toutes faites. Avant de passer à l'étage 2, on construit soi-même l'étage 1 sur des données réelles : pour chaque mois et chaque action de l'univers, six z-scores (les cinq caractéristiques de l'étape 7, plus le bêta pour le marché). Rien n'est encore combiné ni investi.
 
 Code et résultats : [`notebooks/etape8_zscores_actions.ipynb`](notebooks/etape8_zscores_actions.ipynb). Données : [`scripts/telecharger_donnees_sp500.py`](scripts/telecharger_donnees_sp500.py) et [`scripts/telecharger_predecesseurs_edgar.py`](scripts/telecharger_predecesseurs_edgar.py).
 
@@ -822,7 +822,7 @@ Pas de neutralisation sectorielle à ce stade, comme chez Fama et French. Le cod
 
 - **Tickers réattribués.** Un ticker peut changer de propriétaire : « BEAM » était Beam Inc. (spiritueux) jusqu'en 2014, c'est aujourd'hui Beam Therapeutics. La SEC et Yahoo rattachent le ticker à l'entreprise actuelle. Règle : un couple (mois, ticker) n'est gardé que si l'entreprise rattachée a déposé un rapport à la SEC dans les 15 mois précédents. Une entreprise qui n'existait pas encore n'a rien déposé et sort d'elle-même.
 - **Holdings créées après coup.** Exxon, Disney, BlackRock, Cigna, Apache et une douzaine d'autres publient aujourd'hui sous une nouvelle entité juridique, sans les comptes d'avant. On récupère les comptes de l'ancienne entité (17 entreprises).
-- **Erreurs d'unité.** Certaines entreprises publient de temps en temps leur nombre d'actions en milliers ou multiplié par 1 000 (PG&E, Garmin, ConocoPhillips, Huntington...). Un chiffre est écarté s'il diffère de plus d'un facteur 3 du dernier chiffre retenu, ou si la capitalisation qu'il implique sort de 1 à 8 000 milliards de dollars. Deux chiffres écartés de suite mais cohérents entre eux signalent un vrai changement (fusion payée en actions) et sont acceptés. Résultat : 1 617 chiffres écartés sur 68 359.
+- **Erreurs d'unité.** Certaines entreprises publient de temps en temps leur nombre d'actions en milliers ou multiplié par 1 000 (PG&E, Garmin, ConocoPhillips, Huntington...). Un chiffre est écarté s'il diffère de plus d'un facteur 3 du dernier chiffre retenu, ou si la capitalisation qu'il implique sort de l'intervalle de 1 à 8 000 milliards de dollars. Deux chiffres écartés de suite mais cohérents entre eux signalent un vrai changement (fusion payée en actions) et sont acceptés. Résultat : 1 617 chiffres écartés sur 68 359.
 
 ### 8.4 Vérification : retrouve-t-on les facteurs de Fama et French ?
 
@@ -883,7 +883,7 @@ Fichier : `data/processed/zscores_sp500_mensuels.csv.gz`.
 
 ### 8.6 Les limites
 
-- **Biais du survivant, la principale.** 206 des 847 entreprises passées dans l'indice n'ont plus de cours sur Yahoo Finance (rachetées, fusionnées ou faillies : Aetna, Celgene, Time Warner, Xilinx...). Elles manquent à la base, ce qui explique l'essentiel de l'écart entre les membres et les actions couvertes sur le graphique de couverture. Ce sont surtout des entreprises sorties de l'indice tôt, d'où une couverture plus faible au début (57 % en 2012 contre 88 % en 2026). Une base professionnelle (CRSP, Compustat) corrigerait ce point.
+- **Biais du survivant, la principale.** 206 des 847 entreprises passées dans l'indice n'ont plus de cours sur Yahoo Finance (rachetées, fusionnées ou en faillite : Aetna, Celgene, Time Warner, Xilinx...). Elles manquent à la base, ce qui explique l'essentiel de l'écart entre les membres et les actions couvertes sur le graphique de couverture. Ce sont surtout des entreprises sorties de l'indice tôt, d'où une couverture plus faible au début (57 % en 2012 contre 88 % en 2026). Une base professionnelle (CRSP, Compustat) corrigerait ce point.
 - **Historique court.** XBRL n'existe que depuis 2009, contre 1963 pour les facteurs de French. Avec 14 ans de z-scores, l'étage 1 maison ne pourra pas être testé sur plusieurs cycles.
 - **Fonds propres simplifiés.** Fama et French ajoutent les impôts différés, rarement publiés à part dans XBRL : ils ne sont pas réintégrés.
 - **Rentabilité approchée.** Résultat d'exploitation au lieu du détail chiffre d'affaires − coûts ; résultat avant impôts pour les banques et assurances.
@@ -955,7 +955,7 @@ Nets de frais, mars 2012 à août 2026 :
 | RSP | 12,5 % | 15,1 % | 0,75 | −26,7 % | |
 
 - **Le score équipondéré fait +0,8 % par an de plus que l'univers, le score ERC −0,1 %.**
-- **Aucune des deux ne fait mieux en Sharpe** : leur volatilité est plus forte que celle de l'indice (15,4 à 15,8 % contre 14,0 %).
+- **Aucun des deux ne fait mieux en Sharpe** : leur volatilité est plus forte que celle de l'indice (15,4 à 15,8 % contre 14,0 %).
 - **Rotation élevée** : environ 300 % par an, achats et ventes compris, soit 1,5 fois le portefeuille remplacé chaque année. Cela coûte 0,3 % par an en frais. C'est surtout le momentum qui tourne : son z-score se renouvelle complètement en un an (étape 8.5).
 
 ### 9.6 Ces écarts sont-ils significatifs ?
@@ -1021,7 +1021,7 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 
 **Pourquoi c'est intéressant :**
 - Le risque qui compte est celui des facteurs **tels qu'on les investit**. Or nos facteurs ne sont qu'en partie ceux de French : corrélation de 0,53 (RMW) à 0,88 (Mom).
-- Ils sont plus volatils (HML 15 % contre 12 %, CMA 10 % contre 8 %) et beaucoup plus liés entre eux. Dans le S&P 500, petites et « value » vont souvent ensemble : SMB et HML sont corrélés à 0,78, contre 0,33 chez French.
+- Ils sont plus volatils (HML 15 % contre 12 %, CMA 10 % contre 8 %) et beaucoup plus liés entre eux. Dans le S&P 500, petites et « value » vont souvent ensemble : SMB et HML sont corrélés à 0,78, contre 0,33 chez French sur la même période.
 - Si l'ERC est sensible à ces différences, les poids changent, et le portefeuille aussi.
 
 **Contrainte** : nos facteurs démarrent en mars 2012. Avec 60 mois d'historique, les premiers poids sont disponibles en février 2017, d'où une comparaison sur **mars 2017 à août 2026** (114 mois).
@@ -1134,7 +1134,11 @@ Fin de chaque mois : $\Sigma_t = D_t C_t D_t$, avec $D_t$ les volatilités prév
 - **Le gain vient de la réactivité, pas du GARCH lui-même** : avec la volatilité EWMA, l'écart avec l'ERC historique est le même (+0,66 % par an, $t = 1{,}5$).
 - **Effet faible sur le risque du portefeuille** : la volatilité ne passe que de 15,4 % à 15,1 %. Celle d'un portefeuille long-only vient surtout du marché, pas de la répartition entre facteurs.
 
-**À retenir** : la volatilité des facteurs est nettement prévisible, et le GARCH la prévoit bien mieux que l'historique sur 60 mois. Dans l'allocation, cela donne une petite amélioration régulière, mais pas significative sur 14,5 ans. Les poids entre facteurs comptent moins que les primes elles-mêmes, quasi nulles depuis 2012.
+### 10.3 À retenir de l'étape 10
+
+- **Calculer l'ERC sur nos propres facteurs plutôt que sur ceux de French ne change presque rien** (10.1) : les poids bougent peu, les deux portefeuilles sont indiscernables. Le résultat de l'étape 9 ne dépend pas de la source des volatilités et corrélations.
+- **La volatilité des facteurs est nettement prévisible**, et le GARCH la prévoit bien mieux que l'historique sur 60 mois (10.2). Dans l'allocation, cela donne une petite amélioration régulière, mais pas significative sur 14,5 ans.
+- **Les poids entre facteurs comptent moins que les primes elles-mêmes**, quasi nulles depuis 2012.
 
 ## Étape 11 : contrôler le risque actif avec la Conformal Prediction
 
@@ -1241,7 +1245,7 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 - Avec les séries de French, on écrit directement : **portefeuille = marché + $\sum_k b_k\, f_k$**, avec $b_k$ le poids GARCH-ERC du facteur $k$ (étape 10.2) et $f_k$ son rendement long-short.
 - Chaque facteur est autofinancé (on vend autant qu'on achète) : l'ajouter au marché ne demande pas de capital, il ajoute seulement un **pari actif**.
 - Rendement actif : $a = \sum_k b_k f_k$. C'est exactement la partie « risque des facteurs » du modèle de la partie 11.2, sans le risque propre aux actions. Risque prévu : $\hat\sigma_a^2 = b^\top \hat\Sigma_f\, b$.
-- Les prévisions GARCH commencent fin 1972 (dix ans pour estimer le modèle), puis 24 mois de scores : les intervalles commencent en **janvier 1975 (620 mois)**.
+- Les prévisions GARCH commencent fin 1972 (environ dix ans pour estimer le modèle), puis 24 mois de scores : les intervalles commencent en **janvier 1975 (620 mois)**.
 - Même score, même calibration, même ACI, même budget de 2,5 %. Pas de frais (les séries de French n'en ont pas) : on compare les méthodes entre elles.
 
 **Couverture des intervalles à 90 %** (1975-2026) :
@@ -1286,7 +1290,7 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 - Deux terrains : **nos actions du S&P 500** (2012-2026, nettes de frais), puis **les facteurs de Fama et French** (1975-2026), d'abord sans frais, puis avec des frais estimés sur nos actions (12.3).
 - Code : [`notebooks/etape12_comparaison_finale.ipynb`](notebooks/etape12_comparaison_finale.ipynb).
 
-### 12.1 Sur notre univers d'actions (mars 2012 - août 2026)
+### 12.1 Sur notre univers d'actions (mars 2012 à août 2026)
 
 - Benchmark : **l'univers pondéré par la capitalisation** (mêmes actions, même biais du survivant). SPY est montré pour référence.
 - Rendements nets de 0,10 % de frais par dollar échangé. 174 mois.
@@ -1317,17 +1321,17 @@ Rendement actif annuel contre l'univers, par sous-période :
   - 2012-2016 : toutes gagnent sur l'univers (+10 à +15 %).
   - 2020 : l'équipondéré décroche (−5 % cumulé). Il porte plus de value et de taille, les deux facteurs qui ont le plus souffert du Covid. Les versions ERC, qui réduisent ces facteurs plus volatils, tiennent mieux.
   - 2022 : pic à +25-30 % pour les versions GARCH. La hausse des taux profite à la value et à la rentabilité.
-  - 2023-2025 : tout l'avance est rendue. Le marché est porté par quelques très grandes valeurs de croissance (Nvidia, Microsoft, Apple…), que nos portefeuilles plafonnent à 10 % et sous-pondèrent par construction (z-scores value et investissement négatifs).
+  - 2023-2025 : toute l'avance est rendue. Le marché est porté par quelques très grandes valeurs de croissance (Nvidia, Microsoft, Apple…), que nos portefeuilles plafonnent à 10 % et sous-pondèrent par construction (z-scores value et investissement négatifs).
   - La courbe **ERC GARCH + CP** est la plus régulière : elle monte un peu moins vite en 2021-2022 et baisse moins en 2023-2025, car la règle réduit les paris quand le risque actif prévu est élevé.
-- **Bas (perte depuis le plus haut)** : en 2020, l'équipondéré perd 28 % contre 23 % pour l'univers. En 2022, toutes les méthodes perdent moins que l'univers (gris), grâce à leur penchant value.
+- **Bas (perte depuis le plus haut)** : en 2020, l'équipondéré perd 28 %, bien plus que l'univers. En 2022, toutes les méthodes perdent moins que l'univers (gris), grâce à leur penchant value.
 
 **Interprétation :**
 - **Aucune méthode ne bat l'univers de façon significative** : t entre −0,1 et 0,6, loin de 2. Le classement entre méthodes ne veut pas dire grand-chose sur 174 mois.
-- **ERC GARCH + CP a le meilleur profil parmi les stratégies** : meilleur Sharpe (0,95), plus faible écart de suivi (4,0 %), pire mois relatif −3,6 % au lieu de −5,7 à −6,6 %, 4 mois hors budget au lieu de 11 à 13. Son Sharpe reste égal à celui de l'univers (0,96).
+- **ERC GARCH + CP a le meilleur profil parmi les stratégies** : meilleur Sharpe (0,95), plus faible écart de suivi (4,0 %), pire mois relatif −3,6 % au lieu de −5,7 à −6,6 %, 4 mois hors budget au lieu de 11 à 13. Son Sharpe reste à peine inférieur à celui de l'univers (0,95 contre 0,96).
 - **L'apport net de chaque brique est donc surtout du côté du risque** : GARCH réduit la volatilité et la perte max, la CP réduit fortement l'écart de suivi. Aucune ne crée de rendement.
 - **Pourquoi pas de surperformance** : sur 2012-2026, les primes des facteurs sont proches de zéro (étape 9) et la période est dominée par les grandes valeurs de croissance, à l'opposé de nos paris.
 
-### 12.2 Sur les facteurs de Fama et French (janvier 1975 - août 2026)
+### 12.2 Sur les facteurs de Fama et French (janvier 1975 à août 2026)
 
 **Quel benchmark ?**
 - Le **marché** (Mkt-RF + taux sans risque), sur 50 ans. C'est le choix naturel : c'est le portefeuille qu'on détient si on ne fait aucun pari sur les facteurs, comme l'univers pondéré par la capitalisation pour nos actions.
@@ -1335,8 +1339,8 @@ Rendement actif annuel contre l'univers, par sous-période :
   - $b_k$ : poids du facteur $k$ selon la méthode (20 % chacun, ERC, ERC GARCH) ; pour ERC GARCH + CP, ces poids sont multipliés par $k_t \le 1$.
   - Chaque facteur est autofinancé (achat des meilleures actions, vente des moins bonnes), donc l'ajouter ne demande pas de capital : il ajoute seulement un **pari actif**, de la même façon que nos z-scores inclinent l'indice.
 - Les cinq facteurs sont SMB, HML, RMW, CMA et Mom (le marché est déjà le benchmark).
-- Début en 1975 : GARCH a besoin de dix ans d'historique (1963-1972), puis la CP de 24 mois de calibration. 620 mois.
-- **Sans frais** dans cette partie, et les facteurs de French contiennent des petites capitalisations et des positions vendeuses : c'est un portefeuille théorique, qui mesure ce que vaut chaque méthode d'allocation quand les primes existent. Les frais sont ajoutés en 12.3.
+- Début en 1975 : GARCH a besoin d'environ dix ans d'historique (1963-1972), puis la CP de 24 mois de calibration. 620 mois.
+- **Sans frais** dans cette partie. Comme les facteurs de French contiennent aussi des petites capitalisations et des positions vendeuses, c'est un portefeuille théorique, qui mesure ce que vaut chaque méthode d'allocation quand les primes existent. Les frais sont ajoutés en 12.3.
 
 Poids moyens des facteurs :
 
@@ -1442,7 +1446,7 @@ Rendement actif annuel net, par sous-période (t entre parenthèses) :
 
 **Interprétation :**
 - **Les frais estimés ne changent pas la conclusion** : environ 0,3 % par an, contre un gain de 3 à 3,6 % par an. Le rendement actif net reste de +2,7 à +3,3 % par an, avec un t entre 4,2 et 5,0.
-- **Il faudrait des frais 10 à 12 fois plus élevés pour annuler le gain**. Même à 3 fois, toutes les méthodes restent significatives (t > 3,4).
+- **Il faudrait des frais 10 à 12 fois plus élevés pour annuler le gain**. Même à 3 fois, toutes les méthodes restent significatives (t ≥ 3,4).
 - **Le classement entre méthodes est inchangé** : les frais sont proches d'une méthode à l'autre. La CP garde le meilleur ratio d'information (0,80) et le plus faible risque actif ; l'équipondéré garde le plus fort rendement actif.
 - **Sur 2012-2026, le rendement actif net est nul** (+0,1 à +0,4 % par an, t < 0,5), comme sur nos actions.
 - **Limite de l'estimation** : nos frais viennent d'un portefeuille long-only de grandes capitalisations, très liquides. Les facteurs de French achètent et vendent à découvert, y compris des petites capitalisations, plus chères à traiter, et le momentum tourne beaucoup. Leurs vrais frais sont probablement plus élevés, d'où le tableau de sensibilité. La marge reste large : il faudrait environ 10 fois nos frais pour effacer le gain.
@@ -1476,7 +1480,7 @@ Rendement actif annuel net, par sous-période (t entre parenthèses) :
 - Gibbs I., Candès E. (2021), Adaptive Conformal Inference Under Distribution Shift, *Advances in Neural Information Processing Systems*.
 - Grinold R., Kahn R. (2000), *Active Portfolio Management*, McGraw-Hill.
 - Jegadeesh N., Titman S. (1993), Returns to Buying Winners and Selling Losers, *Journal of Finance*.
-- J.P. Morgan (1996), *RiskMetrics: Technical Document*, 4e édition.
+- J.P. Morgan (1996), *RiskMetrics: Technical Document*, 4ᵉ édition.
 - Kraskov A., Stögbauer H., Grassberger P. (2004), Estimating Mutual Information, *Physical Review E*.
 - Kupiec P. (1995), Techniques for Verifying the Accuracy of Risk Measurement Models, *Journal of Derivatives*.
 - Linfoot E. (1957), An Informational Measure of Correlation, *Information and Control*.
