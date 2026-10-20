@@ -151,7 +151,7 @@ Ce qu'on en retient :
 
 - **Cinq primes sur six sont significatives** (t-stat > 2). La taille fait exception : 2,2 % par an, t-stat de 1,7, et la moitié des mois seulement sont positifs. Sur 63 ans, on ne peut pas affirmer que la prime de taille existe.
 - **Hors momentum, les facteurs long-short ont des Sharpe proches de celui du marché, avec deux fois moins de volatilité** (7 à 10 % par an contre 15 %). CMA a le meilleur Sharpe des facteurs de style (0,41) avec la volatilité la plus faible.
-- **Aucun facteur ne suit une loi normale** : le test de Jarque-Bera rejette la normalité pour les six (p-valeur < 10⁻¹³). Le momentum est le cas extrême : asymétrie de −1,29 et kurtosis de 9,5, avec une perte de 34 % en un seul mois (avril 2009). C'est l'anomalie à krachs décrite par Roncalli (2017) à l'étape 1.
+- **Aucun facteur ne suit une loi normale** : le test de Jarque-Bera rejette la normalité pour les six (p-valeur < 10⁻¹³). Le momentum est le cas extrême : asymétrie de −1,29 et kurtosis de 9,5, avec une perte de 34 % en un seul mois (avril 2009). C'est l'anomalie à krachs décrite par Roncalli (2017) à l'étape 2.5.
 - **La kurtosis de RMW (10,4) vient presque entièrement de la bulle internet** : ses meilleur et pire mois tombent en 2000.
 - **Les pertes maximales sont longues** : −58 % sur quatorze ans pour la value (2006 à 2020), −56 % sur seize ans pour la taille. Un investisseur concentré sur un seul facteur peut attendre plus d'une décennie avant de revenir à son sommet.
 - **HML, RMW et CMA ont une légère autocorrélation** (0,13 à 0,16), contre quasiment zéro pour le marché et le momentum.
@@ -345,7 +345,7 @@ La contribution du facteur $k$ est $b_k\,\mathrm{Cov}(F_k, y)/\mathrm{Var}(y)$. 
 *En % de la variance du rendement mensuel.*
 
 - Le marché domine partout. Même pour Apple, c'est le premier facteur, mais il ne pèse que 28 % de la variance contre 63 % pour la part spécifique.
-- Pour le portefeuille, les facteurs de style (HML, Mom) ajoutent environ 7 points au marché, et la part spécifique n'est plus que de 6 %.
+- Pour le portefeuille, les facteurs de style ajoutent de la variance expliquée au marché, surtout HML (3,8 points) et Mom (3,2 points), et la part spécifique n'est plus que de 6 %.
 
 ### 4.5 Le R² en fonction du nombre d'actions
 
@@ -387,7 +387,7 @@ On tire au hasard $N$ actions parmi les 107, on forme le portefeuille équipond�
 
 - Le modèle à six facteurs explique **94 % de la variance d'un portefeuille diversifié** de 107 actions, mais **seulement 37 % de celle d'Apple**.
 - La différence est le risque spécifique : 63 % de la variance d'Apple, 6 % de celle du portefeuille. Il disparaît avec la diversification, et dès 30 actions le R² atteint 89 %.
-- Les facteurs de style apportent une information réelle au-delà du marché : 10 points de R² en plus pour le portefeuille.
+- Les facteurs de style apportent une information réelle au-delà du marché : le R² du portefeuille passe de 84 % avec le marché seul à 94 % avec les six facteurs.
 - Les expositions estimées ont un sens économique : Apple est une valeur de croissance à bêta élevé, le portefeuille équipondéré est défensif et légèrement anti-momentum, par construction.
 - Conclusion pour la suite : ce qui reste dans un portefeuille diversifié, c'est le risque des facteurs. C'est donc entre ces facteurs qu'il faut répartir le risque.
 
@@ -442,8 +442,8 @@ En gras : significatif à 5 %. P-valeurs détaillées dans le notebook.
 ![Pearson contre information mutuelle](docs/figures/mi_pearson_significativite.png)
 
 - **Pearson détecte 11 liens sur 12, l'information mutuelle 6.** Les 6 liens détectés par l'information mutuelle sont tous détectés par Pearson. Elle ne trouve **aucun lien que Pearson aurait manqué**.
-- **Les liens forts sont vus par les deux mesures** : le marché pour les deux cibles, le momentum pour le portefeuille, HML et CMA pour Apple. Pour le marché, $\rho_I$ est proche de $|\rho|$ : le lien est essentiellement linéaire.
-- **Les liens faibles (|ρ| entre 0,15 et 0,24) échappent à l'information mutuelle**, alors qu'ils sont nets pour Pearson (p-valeurs toutes inférieures à 0,01). Deux estimations valent même exactement 0 pour Apple (RMW et Mom), bien que $|\rho|$ atteigne au moins 0,16.
+- **Les liens forts sont vus par les deux mesures** : le marché pour les deux cibles, le momentum pour le portefeuille, HML et CMA pour Apple. Le sixième lien vu par l'information mutuelle, RMW-portefeuille, est faible pour Pearson ($\rho = -0{,}14$) : c'est probablement un faux positif (voir le surplus non significatif ci-dessous). Pour le marché, $\rho_I$ est proche de $|\rho|$ : le lien est essentiellement linéaire.
+- **Les autres liens faibles (|ρ| entre 0,15 et 0,24) échappent à l'information mutuelle**, alors qu'ils sont nets pour Pearson (p-valeurs toutes inférieures à 0,01). Deux estimations valent même exactement 0 pour Apple (RMW et Mom), bien que $|\rho|$ atteigne au moins 0,16.
 - **Deux couples ont un $\rho_I$ nettement au-dessus de $|\rho|$** : HML-Apple (0,35 contre 0,26) et RMW-portefeuille (0,36 contre 0,14). La partie 5.5 montre que ce surplus n'est pas significatif et ne laisse aucune trace une fois la régression estimée.
 - **Les valeurs faibles de l'information mutuelle sont instables** : selon le nombre de voisins $k$ (3, 5, 10 ou 20), l'estimation pour HML-Apple varie de 0,01 à 0,08 nat. Les valeurs fortes (marché) ne bougent presque pas.
 
@@ -489,7 +489,7 @@ La courbe lissée suit la droite dans la zone où se trouvent presque tous les m
 ### 5.6 À retenir de l'étape 5
 
 - **Pour expliquer les rendements par les facteurs, la lecture non linéaire n'apporte rien de mesurable ici.** L'information mutuelle ne trouve aucun lien que Pearson aurait manqué, et ajouter des termes non linéaires à la régression n'améliore pas le R².
-- **Avec 320 mois, l'information mutuelle est beaucoup moins puissante.** Elle ne juge significatif qu'un lien d'une force équivalente à $\rho > 0{,}31$, contre $0{,}11$ pour Pearson. Elle passe à côté de liens linéaires faibles, mais bien réels, comme ceux de SMB ou RMW.
+- **Avec 320 mois, l'information mutuelle est beaucoup moins puissante.** Elle ne juge significatif qu'un lien d'une force équivalente à $\rho > 0{,}31$, contre $0{,}11$ pour Pearson. Elle passe à côté de liens linéaires faibles, mais bien réels, comme ceux de SMB ou de RMW pour Apple.
 - **Elle reste utile comme diagnostic.** Elle confirme que le modèle linéaire suffit, et elle signale ce que la corrélation ne voit pas. Le marché et le portefeuille chutent ensemble plus souvent qu'une loi normale ne le prévoit, et la dispersion des écarts au modèle varie avec les facteurs. Ces deux points concernent le **risque**, pas le rendement moyen.
 
 ## Étape 6 : les expositions aux facteurs sont-elles stables dans le temps ?
@@ -524,12 +524,12 @@ La régression de l'étape 4 a été estimée une seule fois sur 2000-2026, ce q
 | CMA | −0,67 | −2,15 | −0,99 | −1,93 | **0,32** | **< 0,001** |
 | Mom | −0,03 | −0,03 | 0,02 | −0,09 | −0,19 | 0,87 |
 | R² | 37 % | 40 % | 50 % | 45 % | 59 % | |
-| **Portefeuille** : Mkt-RF | 0,91 | 0,95 | 0,93 | 0,97 | 0,88 | 0,05 |
+| **Portefeuille** : Mkt-RF | 0,91 | 0,95 | 0,93 | 0,97 | 0,88 | **0,049** |
 | SMB | −0,02 | 0,01 | −0,08 | −0,04 | 0,04 | 0,34 |
 | HML | 0,19 | 0,15 | 0,18 | **−0,03** | 0,26 | **< 0,001** |
 | RMW | 0,15 | 0,23 | 0,12 | 0,07 | 0,12 | 0,17 |
 | CMA | 0,25 | 0,26 | **0,04** | 0,36 | 0,30 | **< 0,001** |
-| Mom | −0,06 | −0,10 | −0,06 | −0,01 | −0,05 | 0,04 |
+| Mom | −0,06 | −0,10 | −0,06 | −0,01 | −0,05 | **0,04** |
 | R² | 94 % | 93 % | 98 % | 97 % | 93 % | |
 
 **Comment lire la p-valeur.** On estime un seul modèle dans lequel chaque coefficient peut prendre une valeur différente dans chaque période, puis on teste si ces valeurs sont égales (test de Chow, sous forme de test de Wald avec les erreurs standard de Newey-West). Une p-valeur faible signifie que l'exposition change vraiment d'une période à l'autre. Le test joint des six expositions rejette la stabilité pour les deux cibles (p < 0,001).
@@ -877,7 +877,7 @@ Fichier : `data/processed/zscores_sp500_mensuels.csv.gz`.
 - Taille, value, bêta et rentabilité changent lentement : un rééquilibrage annuel suffit pour ces facteurs.
 - Le momentum se renouvelle complètement en un an, l'investissement presque : ce sont les facteurs les plus coûteux en rotation (étape 7.3).
 
-**Exemple : Apple.** Plus grosse capitalisation de l'indice, donc `z_smb` au plafond de −3. Action « chère » (`z_hml` négatif) mais très rentable : `z_rmw` monte jusqu'au plafond de +3 à partir de 2022, ses fonds propres ayant fondu sous l'effet des rachats d'actions. Cela confirme la lecture de l'étape 6.
+**Exemple : Apple.** Plus grosse capitalisation de l'indice la plupart du temps, donc `z_smb` proche du plafond (entre −2,5 et −3). Action « chère » (`z_hml` négatif) mais très rentable : `z_rmw` monte jusqu'au plafond de +3 à partir de 2022, ses fonds propres ayant fondu sous l'effet des rachats d'actions. Cela confirme la lecture de l'étape 6.
 
 ![Apple](docs/figures/zscores_apple.png)
 
@@ -1073,7 +1073,7 @@ $$\sigma_{t+1}^2 = \omega + \alpha\, \varepsilon_t^2 + \beta\, \sigma_t^2$$
 
 - **Candidats** : ARCH(1), GARCH(1,1), (2,1), (1,2), GJR-GARCH (effet asymétrique des baisses) et EGARCH, avec des chocs de loi normale ou de Student.
 - **Critère** : BIC, sur 1963-1989 seulement, avant toute période d'évaluation.
-- **Retenu : GARCH(1,1) de Student.** L'EGARCH a un BIC un peu plus faible (environ 2 points par facteur, un écart faible), mais il est instable quand on le ré-estime : il prévoit une fois 137 % de volatilité annuelle pour HML. Le GARCH(1,1) n'a pas ce problème.
+- **Retenu : GARCH(1,1) de Student.** L'EGARCH a un BIC un peu plus faible en moyenne (environ 2 points par facteur, grâce à HML et Mom ; il est moins bon pour les trois autres), mais il est instable quand on le ré-estime : il prévoit une fois 137 % de volatilité annuelle pour HML. Le GARCH(1,1) n'a pas ce problème.
 - **Paramètres** (1963-1989) : persistance $\alpha + \beta$ de 0,79 (Mom) à 0,98 (SMB). Un choc de volatilité est à moitié résorbé en 3 mois pour Mom, et en 5 à 28 mois pour les autres facteurs. Le momentum a les chocs les plus forts et les plus brefs ($\alpha = 0{,}55$).
 - **Contrôle** : une fois le GARCH appliqué, les résidus standardisés au carré ne sont plus autocorrélés (p-valeurs de Ljung-Box de 0,48 à 0,93).
 
@@ -1103,7 +1103,7 @@ $$\sigma_{t+1}^2 = \omega + \alpha\, \varepsilon_t^2 + \beta\, \sigma_t^2$$
 
 ![Volatilités prévues](docs/figures/garch_volatilites.png)
 
-- **Le GARCH bat l'historique pour les cinq facteurs, significativement à chaque fois.** Il bat aussi l'EWMA pour les cinq, significativement pour trois (HML, RMW, Mom).
+- **Le GARCH bat l'historique pour les cinq facteurs, significativement à chaque fois.** Il bat aussi l'EWMA pour les cinq, significativement pour trois (HML, RMW, et Mom de justesse).
 - **Les prévisions sont bien calibrées** : $b$ proche de 1 et $a = 0, b = 1$ non rejeté pour quatre facteurs. L'historique a un $b$ de 0,1 à 0,5 : il est presque sans lien avec la volatilité qui suit.
 - **Dépassements** : 3,6 % à 7,7 % avec le GARCH, contre 5,9 % à 9,3 % avec l'historique, qui sous-estime le risque après un choc.
 - **Exception, le momentum** : $b = 0{,}40$. Après un krach, le GARCH surréagit (73 % de volatilité annuelle prévue en 2009, alors que la plus forte volatilité réalisée sur 12 mois n'a jamais dépassé 43 %).
@@ -1316,7 +1316,7 @@ Rendement actif annuel contre l'univers, par sous-période :
 | ERC GARCH + CP | +2,9 % | +1,2 % | −2,0 % |
 
 **Lecture du graphique :**
-- **Haut** : les quatre méthodes et l'univers finissent presque au même point (un peu plus de 8 $ pour 1 $). Pas d'écart visible à l'œil sur 14 ans.
+- **Haut** : les quatre méthodes et l'univers finissent proches les uns des autres (entre 7,3 et 8,3 $ pour 1 $ investi). Les écarts sont faibles à l'œil sur 14 ans.
 - **Milieu (rendement actif cumulé)** : c'est là que les méthodes se séparent.
   - 2012-2016 : toutes gagnent sur l'univers (+10 à +15 %).
   - 2020 : l'équipondéré décroche (−5 % cumulé). Il porte plus de value et de taille, les deux facteurs qui ont le plus souffert du Covid. Les versions ERC, qui réduisent ces facteurs plus volatils, tiennent mieux.
@@ -1385,7 +1385,7 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
   - l'équipondéré a le plus de rendement actif (+3,6 %) mais aussi le plus d'écart de suivi (4,8 %) et 21 mois hors budget ;
   - l'ERC et l'ERC GARCH réduisent l'écart de suivi (4,2 %) et améliorent le ratio d'information (0,75 → 0,79 → 0,82) ; GARCH apporte un petit gain régulier, comme en 10.2 ;
   - **la CP donne le meilleur ratio d'information (0,89) et le t le plus élevé (5,5)** : moins de rendement actif (+3,0 %), mais beaucoup moins de risque actif (3,3 %, 3 mois hors budget, pire mois −4,4 %).
-- **Le Sharpe total ne suit pas** (0,80 pour la CP contre 0,84-0,85) : le risque du portefeuille vient presque entièrement du marché, donc réduire le risque actif ne baisse pas la volatilité totale, alors que le rendement actif baisse.
+- **Le Sharpe total ne suit pas** (0,80 pour la CP contre 0,83-0,85) : le risque du portefeuille vient presque entièrement du marché, donc réduire le risque actif ne baisse pas la volatilité totale, alors que le rendement actif baisse.
 - **Le rapprochement avec nos actions** : sur 2012-2026, même avec les facteurs de French, le rendement actif tombe à +0,4 à +0,7 % par an (t < 0,8). L'absence de surperformance de la partie 12.1 vient donc de la **période**, pas de notre univers ni de nos méthodes.
 
 ### 12.3 Les facteurs de French avec des frais estimés sur nos actions
@@ -1453,9 +1453,9 @@ Rendement actif annuel net, par sous-période (t entre parenthèses) :
 
 ### 12.4 À retenir de l'étape 12
 
-- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) font gagner en ratio d'information à chaque étape. **Cela tient après frais** : avec les frais mesurés sur nos actions, le gain reste de +2,7 à +3,3 % par an sur 50 ans, et il faudrait des frais environ 10 fois plus élevés pour l'effacer.
+- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) améliorent le ratio d'information sur l'ensemble de 1975-2026 (0,75 → 0,79 → 0,82 → 0,89 sans frais), même si l'écart entre ERC et ERC GARCH est nul sur 1975-1989. **Cela tient après frais** : avec les frais mesurés sur nos actions, le gain reste de +2,7 à +3,3 % par an sur 50 ans, et il faudrait des frais environ 10 fois plus élevés pour l'effacer.
 - **Quand elles n'existent pas (2012-2026)**, aucune méthode ne crée de rendement, sur nos actions comme sur les séries de French, avec ou sans frais. Les méthodes servent alors à **contrôler le risque** : ERC GARCH + CP est la version la plus régulière, avec le plus faible écart de suivi et le moins de mauvais mois.
-- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est d'environ 0,6 point par an. L'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions). Les frais varient peu : 2,2 à 2,7 points de base par mois.
+- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est de 0,6 point par an sur French et de 0,9 point sur nos actions. L'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions). Les frais varient peu : 2,2 à 2,7 points de base par mois.
 - **Limites** :
   - 14,5 ans de données sur nos actions : aucune différence n'y est significative ;
   - les frais des séries de French sont estimés à partir de nos grandes capitalisations, donc probablement sous-estimés ;
