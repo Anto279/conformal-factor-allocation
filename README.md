@@ -1,7 +1,5 @@
 # Allocation entre facteurs actions
 
-Projet de recherche construit étape par étape. Chaque étape répond à une question.
-
 ## Résumé du projet
 
 **La question.** Un gérant multi-facteurs répartit son portefeuille entre quelques primes de risque : taille, value, rentabilité, investissement, momentum. Faut-il les pondérer à parts égales, ou à risques égaux (ERC), comme le défend la recherche d'Amundi (Roncalli, 2017) ? Et une méthode statistique récente, la Conformal Prediction, peut-elle améliorer cette allocation ?
