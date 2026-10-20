@@ -2,6 +2,45 @@
 
 Projet de recherche construit étape par étape. Chaque étape répond à une question.
 
+## Résumé du projet
+
+**La question.** Un gérant multi-facteurs répartit son portefeuille entre quelques primes de risque : taille, value, rentabilité, investissement, momentum. Faut-il les pondérer à parts égales, ou à risques égaux (ERC), comme le défend la recherche d'Amundi (Roncalli, 2017) ? Et une méthode statistique récente, la Conformal Prediction, peut-elle améliorer cette allocation ?
+
+**Pourquoi les facteurs (étapes 1 à 7)**
+- Mon projet précédent montrait que les rendements ne se prévoient presque pas, alors que le risque se prévoit. D'où l'intérêt d'une allocation qui n'utilise que le risque : l'ERC.
+- Sur les données de Fama et French (1963-2026), cinq primes sur six sont significatives, peu corrélées entre elles, avec une volatilité qui varie fortement dans le temps (étape 3).
+- Le modèle à six facteurs explique 94 % de la variance d'un portefeuille diversifié, contre 37 % pour Apple seule (étape 4). Une lecture non linéaire n'apporte rien pour expliquer les rendements (étape 5), et les expositions bougent, mais lentement (étape 6).
+- Une allocation par facteurs se fait en deux étages : construire chaque facteur à partir d'actions (z-scores), puis répartir le portefeuille entre les facteurs (étape 7).
+
+**Ce que j'ai reproduit (étapes 8 et 9)**
+- **Étage 1 sur données réelles** : des z-scores de taille, value, rentabilité, investissement et momentum pour les membres historiques du S&P 500 de 2012 à 2026, calculés à partir des comptes déposés à la SEC (seulement ceux déjà publiés à chaque date). Les facteurs reconstruits suivent ceux de French.
+- **Étage 2** : un portefeuille long-only (30 % des actions les mieux notées, plafond de 10 % par action, 0,10 % de frais), avec un score équipondéré ou pondéré par des poids ERC, comparé à l'univers pondéré par la capitalisation.
+- **Résultat : pas de surperformance significative.** +0,8 % par an pour le score équipondéré ($t = 0{,}4$), −0,1 % pour le score ERC. Les portefeuilles portent bien les facteurs visés, mais les primes ont été quasi nulles depuis 2012.
+- **Une limite de méthode** : appliquer des poids ERC à un score ne répartit pas le risque actif à parts égales (la value en porte 42 %, la rentabilité presque rien). Sur nos actions, on compare donc deux jeux de poids dans un score, pas une vraie allocation à risques égaux.
+
+**Les améliorations testées (étapes 10 à 12)**
+- **Volatilité prévue par GARCH dans l'ERC** (10.2) : le GARCH prévoit nettement mieux la volatilité des facteurs que l'historique. Dans l'allocation, le gain est faible (+0,65 % par an, $t = 1{,}1$, non significatif).
+- **Conformal Prediction pour contrôler le risque actif** (11) :
+  - la CP ne sert pas à prévoir les rendements, car il n'y a pas de signal à encadrer ;
+  - elle sert à transformer une prévision de risque en une borne de perte relative fiable : chaque mois, si la perte possible contre l'indice dépasse 2,5 %, on réduit les paris ;
+  - sur nos actions : écart de suivi de 6,1 % à 4,2 %, mois sous −2,5 % de 11 à 4, sans coût de rendement mesurable ;
+  - sur 50 ans de facteurs de French : couverture de 90,0 % pour un objectif de 90 %, contre 84,7 % pour la méthode classique (quantile de la loi normale), rejetée par le test de Kupiec.
+- **Comparaison finale** (12) :
+  - sur nos actions, aucune méthode ne bat l'univers de façon significative ; ERC GARCH + CP a le profil le plus régulier (écart de suivi de 4,1 %, Sharpe égal à celui de l'univers) ;
+  - sur les facteurs de French (1975-2026), où l'ERC est une vraie allocation à risques égaux, toutes les méthodes battent le marché d'environ +2,65 à +3,3 % par an après des frais estimés sur nos actions ($t$ entre 4,2 et 5,0) ;
+  - le ratio d'information progresse à chaque brique (de 0,75 à 0,88 avant frais), mais sans écart significatif entre méthodes ;
+  - ce gain est nul depuis 2012.
+
+**Conclusions**
+- **La période compte plus que la méthode.** Quand les primes existent, l'allocation par facteurs bat le marché. Depuis 2012, elles ont disparu, et aucune pondération n'y change rien.
+- **ERC et GARCH améliorent un peu le rendement par unité de risque**, sans différence significative, ni sur 14 ans ni sur 50 ans.
+- **La Conformal Prediction est utile pour le risque, pas pour le rendement.** Elle rend fiable, en moyenne, un budget de perte relative et réduit les mauvais mois. Elle ne garantit rien mois par mois : les sorties arrivent groupées après un choc. Elle ne protège ni d'une chute du marché, ni d'une perte lente.
+- **Limites** :
+  - 14,5 ans de données sur les actions ;
+  - biais du survivant (entreprises disparues sans cours) ;
+  - frais simplifiés, probablement sous-estimés pour les facteurs de French ;
+  - sur nos actions, l'ERC appliqué au score n'égalise pas vraiment le risque.
+
 ## Étape 1 : pourquoi s'intéresser aux modèles à facteurs ?
 
 - **Les facteurs expliquent l'essentiel du risque d'un portefeuille diversifié.** Sur un titre isolé, le risque spécifique domine ; dès qu'on diversifie, il s'efface et il ne reste que l'exposition à quelques facteurs communs (marché, taille, value, momentum, qualité, faible volatilité). Comme le résume Roncalli (2017) : *« Common risk factors are the only bets that are compatible with diversification. »*
@@ -77,11 +116,11 @@ Point clé : **les facteurs sont des rendements, pas des caractéristiques brute
 
 Les facteurs ne sont pas calculés sur notre portefeuille. Fama et French les calculent sur l'ensemble des actions américaines (NYSE, AMEX, NASDAQ, environ 4 000 titres) et publient chaque mois leur rendement sur le site de Kenneth French. On télécharge ces séries telles quelles.
 
-**La recette, identique pour tous les facteurs**
+**La recette, la même pour tous les facteurs (avec une variante pour la taille)**
 
 1. On prend toutes les actions américaines.
 2. On mesure pour chacune une caractéristique (sa taille, son prix par rapport à sa valeur comptable, sa rentabilité...).
-3. On les classe selon cette caractéristique et on forme deux groupes : les 30 % du haut et les 30 % du bas. Les 40 % du milieu ne servent pas.
+3. On les classe selon cette caractéristique et on forme deux groupes : les 30 % du haut et les 30 % du bas. Les 40 % du milieu ne servent pas. Pour la taille (SMB), la coupure se fait à la médiane des actions du NYSE (moitié petites, moitié grandes), et SMB est la moyenne des écarts petites − grandes obtenus en croisant la taille avec les autres caractéristiques.
 4. Le facteur du mois = rendement moyen d'un groupe − rendement moyen de l'autre.
 
 Un facteur est donc le résultat d'un pari « j'achète un groupe, je vends l'autre ». Par exemple, si en mars les actions bon marché gagnent 2 % et les actions chères 0,5 %, le facteur value vaut +1,5 % en mars.
@@ -149,7 +188,7 @@ Rendement annualisé $= 12\,\bar r$, volatilité annualisée $= \sqrt{12}\,\hat\
 
 Ce qu'on en retient :
 
-- **Cinq primes sur six sont significatives** (t-stat > 2). La taille fait exception : 2,2 % par an, t-stat de 1,7, et la moitié des mois seulement sont positifs. Sur 63 ans, on ne peut pas affirmer que la prime de taille existe.
+- **Cinq primes sur six sont significatives** (t-stat > 2). La taille fait exception : 2,2 % par an, t-stat de 1,7, et la moitié des mois seulement sont positifs. Sur 63 ans, on ne peut pas affirmer que la prime de taille existe. Ces t-stats supposent des mois indépendants ; HML, RMW et CMA ont une légère autocorrélation (0,13 à 0,16), qui les gonfle un peu, sans changer la conclusion.
 - **Hors momentum, les facteurs long-short ont des Sharpe proches de celui du marché, avec deux fois moins de volatilité** (7 à 10 % par an contre 15 %). CMA a le meilleur Sharpe des facteurs de style (0,41) avec la volatilité la plus faible.
 - **Aucun facteur ne suit une loi normale** : le test de Jarque-Bera rejette la normalité pour les six (p-valeur < 10⁻¹³). Le momentum est le cas extrême : asymétrie de −1,29 et kurtosis de 9,5, avec une perte de 34 % en un seul mois (avril 2009). C'est l'anomalie à krachs décrite par Roncalli (2017) à l'étape 2.5.
 - **La kurtosis de RMW (10,4) vient presque entièrement de la bulle internet** : ses meilleur et pire mois tombent en 2000.
@@ -454,7 +493,7 @@ La **puissance** d'un test est la probabilité de détecter un lien qui existe v
 ![Puissance des deux tests](docs/figures/mi_puissance_tests.png)
 
 - **Lien linéaire** : pour $\rho = 0{,}2$, Pearson détecte le lien 94 fois sur 100, l'information mutuelle 14 fois sur 100. C'est exactement l'ordre de grandeur des liens de style observés.
-- **Lien en U** : la situation s'inverse. Pour $a = 0{,}3$, l'information mutuelle détecte le lien 70 fois sur 100, Pearson 12 fois sur 100.
+- **Lien en U** : la situation s'inverse. Pour $a = 0{,}3$, l'information mutuelle détecte le lien 70 fois sur 100, Pearson 12 fois sur 100. Ces 12 % ne sont d'ailleurs pas de vraies détections : la corrélation d'un lien en U vaut 0, et le test de Pearson rejette à tort parce que la dépendance fausse sa loi.
 - **C'est le prix de la généralité.** Pearson ne cherche qu'une seule forme de lien et concentre toute l'information de l'échantillon sur elle. L'information mutuelle cherche toutes les formes possibles et a besoin de beaucoup plus de données pour en confirmer une. Avec 320 mois, elle ne voit que les liens forts.
 
 Conclusion intermédiaire : quand l'information mutuelle n'est pas significative et Pearson l'est, ce n'est pas un désaccord sur l'existence du lien, c'est un manque de puissance.
@@ -573,13 +612,17 @@ On ré-estime la régression sur chaque fenêtre de 36 mois. Un bêta glissant b
 
 ![Bêtas glissants d'Apple](docs/figures/regimes_betas_glissants_apple.png)
 
-| Part des mois hors de la bande (10 % attendus si les bêtas sont constants) | Mkt-RF | SMB | HML | RMW | CMA | Mom |
+| Part des mois hors de la bande (10 % attendus en moyenne si les bêtas sont constants) | Mkt-RF | SMB | HML | RMW | CMA | Mom |
 |---|---:|---:|---:|---:|---:|---:|
 | Apple | 13 % | 16 % | 9 % | 12 % | **22 %** | 7 % |
-| Portefeuille | 4 % | 5 % | **40 %** | 4 % | **15 %** | 9 % |
+| p-valeur (simulations) | 0,32 | 0,20 | 0,50 | 0,36 | **0,05** | 0,61 |
+| Portefeuille | 4 % | 5 % | **40 %** | 4 % | 15 % | 9 % |
+| p-valeur (simulations) | 0,78 | 0,73 | **< 0,01** | 0,79 | 0,20 | 0,49 |
 
-- **Pour le portefeuille, le bêta de marché reste dans la bande presque tout le temps** : sa variation est entièrement compatible avec le bruit. **HML en sort 40 % du temps.** Il passe de +0,2 à −0,2 au milieu des années 2000, reste près de 0 entre 2012 et 2020, puis monte à +0,55 sur les trois dernières années.
-- **Pour Apple, les bandes sont très larges**, car le risque spécifique est énorme (30 % par an). La plupart des mouvements, même spectaculaires, restent dans le bruit. Seul CMA en sort nettement plus souvent que prévu, ce qui confirme le basculement vu en 6.2. Le pic du bêta de marché vers 4 en 2007 sort de la bande, mais il est isolé.
+*Les fenêtres de 36 mois se chevauchent : même avec des bêtas constants, la part de mois hors bande varie beaucoup d'un historique à l'autre (elle dépasse 22 à 25 % une fois sur 20 dans les 500 simulations). La p-valeur compare donc la part observée à sa distribution simulée.*
+
+- **Pour le portefeuille, le bêta de marché reste dans la bande presque tout le temps** : sa variation est entièrement compatible avec le bruit. **HML en sort 40 % du temps** (p < 0,01), le seul écart net de ce test ; CMA (15 %) reste compatible avec le bruit ici, même si le test de Chow de la 6.2 rejette sa stabilité. Il passe de +0,2 à −0,2 au milieu des années 2000, reste près de 0 entre 2012 et 2020, puis monte à +0,55 sur les trois dernières années.
+- **Pour Apple, les bandes sont très larges**, car le risque spécifique est énorme (30 % par an). La plupart des mouvements, même spectaculaires, restent dans le bruit. Seul CMA en sort plus souvent que prévu, à la limite du seuil de 5 % (p = 0,05), ce qui va dans le sens du basculement vu en 6.2. Le pic du bêta de marché vers 4 en 2007 sort de la bande, mais il est isolé.
 
 ### 6.5 L'instabilité compte-t-elle en pratique ?
 
@@ -595,7 +638,7 @@ Laisser les bêtas changer améliore l'explication, mais peu : l'essentiel du li
 ### 6.6 À retenir de l'étape 6
 
 - **Les bêtas ne sont pas parfaitement stables** : pour les deux cibles, le test joint rejette l'égalité des expositions entre les quatre périodes (p < 0,001).
-- **Ce qui est stable, c'est le bêta de marché d'un portefeuille diversifié** : entre 0,88 et 0,97 sur toutes les périodes et dans les deux régimes, et presque toujours dans la bande du bruit d'estimation.
+- **Ce qui est le plus stable, c'est le bêta de marché d'un portefeuille diversifié** : entre 0,88 et 0,97 sur toutes les périodes et dans les deux régimes, et presque toujours dans la bande du bruit d'estimation. Le test par période est à la limite du rejet (p = 0,049) : les écarts sont réels mais petits.
 - **Ce qui bouge, ce sont certaines expositions de style** : HML et CMA pour le portefeuille, CMA et RMW pour Apple. Elles changent d'une époque à l'autre bien plus qu'entre marchés calmes et agités. Pour une action seule, elles suivent la vie de l'entreprise : Apple est passée d'une entreprise moyenne en forte croissance à un géant très rentable qui rachète ses actions.
 - **Une bonne partie de la variation apparente n'est que du bruit.** Sur 36 mois, un bêta glissant peut bouger beaucoup sans que le vrai bêta change. Il faut donc tester avant de conclure, d'autant qu'on fait ici de nombreux tests.
 - **Pour la partie allocation à venir** : les expositions doivent être ré-estimées régulièrement plutôt que fixées une fois pour toutes. Comme leurs variations sont lentes et en partie dues au bruit, il vaut mieux ne pas réagir à chaque mouvement de court terme.
@@ -915,7 +958,7 @@ $$S_{i,t} = \sum_k w_{k,t}\, z_{i,k,t}, \qquad \sum_k w_{k,t} = 1$$
 puis $S$ est re-standardisé chaque mois (moyenne 0, écart-type 1).
 
 - **Équipondéré** : chaque facteur pèse 20 %.
-- **ERC** : chaque facteur apporte la même part du risque. Le calcul se fait sur la volatilité et les corrélations des facteurs de Fama et French des 60 mois précédents. En moyenne : RMW 30 %, SMB 23 %, CMA 18 %, Mom 17 %, HML 13 %. RMW, le facteur le plus calme, pèse le plus.
+- **ERC** : les poids qui donnent à chaque **facteur de Fama et French** la même part du risque, calculés sur leur volatilité et leurs corrélations des 60 mois précédents. Ces poids servent ensuite à combiner les z-scores : rien ne garantit que le portefeuille final répartisse son risque de la même façon (voir 9.7). En moyenne : RMW 30 %, SMB 23 %, CMA 18 %, Mom 17 %, HML 13 %. RMW, le facteur le plus calme, pèse le plus.
 - Une action doit avoir au moins 3 z-scores sur 5 ; un z-score manquant compte pour 0.
 - Les deux scores se ressemblent beaucoup : corrélation de 0,92.
 
@@ -936,7 +979,7 @@ Les poids dérivent avec les cours pendant le mois. La rotation compte tout ce q
 
 ### 9.4 Les benchmarks
 
-- **Univers pondéré par la capitalisation** (benchmark principal) : toutes les actions de la base, au poids de l'indice. Mêmes actions et mêmes données que les stratégies, donc seul l'effet des facteurs les sépare.
+- **Univers pondéré par la capitalisation** (benchmark principal) : toutes les actions de la base, au poids de l'indice. Mêmes actions et mêmes données que les stratégies, donc l'essentiel de l'écart vient des paris sur les facteurs. Le biais du survivant n'est pas tout à fait neutre pour autant : les entreprises disparues, qui manquent à la base, sont souvent petites, « value » ou à faible momentum, c'est-à-dire là où penchent les stratégies.
 - **SPY** : acheter le S&P 500 et le garder, ce qu'un investisseur aurait vraiment obtenu.
 - **RSP** : le S&P 500 équipondéré.
 
@@ -954,7 +997,7 @@ Nets de frais, mars 2012 à août 2026 :
 | SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | |
 | RSP | 12,5 % | 15,1 % | 0,75 | −26,7 % | |
 
-- **Le score équipondéré fait +0,8 % par an de plus que l'univers, le score ERC −0,1 %.**
+- **Le score équipondéré fait +0,8 % par an de plus que l'univers, le score ERC −0,1 %** (moyenne du rendement actif mensuel × 12 ; en rendement composé, comme dans le tableau, l'écart est de +0,6 % et −0,4 %).
 - **Aucun des deux ne fait mieux en Sharpe** : leur volatilité est plus forte que celle de l'indice (15,4 à 15,8 % contre 14,0 %).
 - **Rotation élevée** : environ 300 % par an, achats et ventes compris, soit 1,5 fois le portefeuille remplacé chaque année. Cela coûte 0,3 % par an en frais. C'est surtout le momentum qui tourne : son z-score se renouvelle complètement en un an (étape 8.5).
 
@@ -973,8 +1016,8 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 
 - **Rien n'est significatif pour les stratégies.** Les intervalles contiennent largement zéro. L'écart entre équipondéré et ERC ne l'est pas non plus.
 - **Le backtest est trop court pour trancher.** Avec 14,5 ans, il faudrait un ratio d'information d'au moins 0,53 pour obtenir $t = 2$. Les fonds factoriels visent plutôt 0,3 à 0,5.
-- **30 variantes testées** (pondérations, seuils, zones tampons). La meilleure, celle retenue ci-dessus, a un IR de 0,11. Corrigé du nombre d'essais (ratio de Sharpe dégonflé), la probabilité que son vrai IR soit positif n'est que de 38 %.
-- **Le biais du survivant se voit** : l'univers bat SPY de 0,4 % par an, de façon significative ($t = 2{,}6$). Les entreprises disparues manquent à la base (étape 8.6). C'est pourquoi le benchmark principal est l'univers, qui a le même biais que les stratégies.
+- **30 variantes testées** (pondérations, seuils, zones tampons). La meilleure, celle retenue ci-dessus, a un IR de 0,11. Corrigé du nombre d'essais (ratio de Sharpe dégonflé), on n'a que 38 % de confiance que son vrai IR dépasse ce que la meilleure de 30 variantes sans aucun talent obtiendrait par chance. Les variantes étant très corrélées, cette correction est plutôt sévère.
+- **Le biais du survivant se voit** : l'univers bat SPY de 0,4 % par an, de façon significative ($t = 2{,}6$). Les entreprises disparues manquent à la base (étape 8.6) ; une petite partie de l'écart vient aussi des frais de SPY (environ 0,09 % par an) et de la couverture partielle de l'indice. C'est pourquoi le benchmark principal est l'univers, qui a en grande partie le même biais que les stratégies.
 
 ### 9.7 Pourquoi ça ne paie pas : les facteurs n'ont presque rien rapporté depuis 2012
 
@@ -985,6 +1028,18 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 - Expositions positives à la value (HML), à l'investissement (CMA), au momentum et à la taille. L'univers, lui, est neutre ou exposé à l'envers (SMB −0,12).
 - **Alpha nul** ($t$ de 0,35 et −0,53) : toute la performance s'explique par ces expositions.
 - **RMW reste presque à zéro**, même dans le score ERC où il pèse 30 %. Les z-scores de rentabilité et de value sont opposés (corrélation −0,47, étape 8.5). Dans le score, ils s'annulent en partie : les actions les plus rentables sont souvent chères, donc pénalisées par HML.
+
+**L'ERC des facteurs ne donne pas un risque actif réparti à parts égales.** Part du risque actif de style apportée par chaque facteur, mesurée sur le rendement actif réalisé (régression sur les six facteurs, covariance des facteurs de French sur 2012-2026) :
+
+| | SMB | HML | RMW | CMA | Mom | R² du rendement actif |
+|---|---:|---:|---:|---:|---:|---:|
+| Score équipondéré | 18 % | 71 % | 1 % | 11 % | 0 % | 65 % |
+| Score ERC | 25 % | 42 % | 0 % | 19 % | 13 % | 46 % |
+| Poids ERC dans le score (moyenne) | 23 % | 13 % | 30 % | 18 % | 17 % | |
+
+- Les poids ERC égalisent le risque des facteurs de French, mais la suite de la construction (z-scores corrélés entre eux, sélection, pondération par la capitalisation, plafond) le redistribue. **HML porte 42 % du risque actif de style dans le score ERC, RMW presque rien.**
+- Le score ERC reste bien plus équilibré que le score équipondéré, où HML porte 71 % du risque. Mais la comparaison de cette étape est celle de **deux jeux de poids dans un score**, pas celle d'une vraie allocation à risques égaux contre une équipondération.
+- Pour égaliser vraiment le risque, il faudrait construire un portefeuille par facteur, puis répartir le capital entre ces portefeuilles selon leur risque. Ce n'est pas ce qui est testé ici.
 
 **Mais les facteurs n'ont pas été rémunérés pendant le backtest** (rendement annuel moyen des facteurs de Fama et French) :
 
@@ -1009,8 +1064,8 @@ Tests sur le rendement actif mensuel (stratégie − benchmark) :
 
 - **La chaîne complète fonctionne** : des comptes et des cours jusqu'à un portefeuille investissable, avec frais, zone tampon et des expositions conformes à ce qu'on vise.
 - **Sur 2012-2026, l'allocation par facteurs ne bat pas le S&P 500 de façon significative.** Score équipondéré : +0,8 % par an contre l'univers ($t = 0{,}4$). Score ERC : −0,1 %.
-- **La raison n'est pas la méthode mais la période** : les primes de style n'ont presque rien rapporté depuis 2012, alors que le marché a fortement monté.
-- **L'ERC ne fait pas mieux que l'équipondération ici.** Répartir le risque entre facteurs n'aide pas quand aucun facteur ne rapporte, et les deux scores sont trop proches (corrélation 0,92) pour se départager en 14 ans.
+- **La raison principale est la période** : les portefeuilles portent bien les facteurs visés, mais les primes de style n'ont presque rien rapporté depuis 2012, alors que le marché a fortement monté. La baisse des primes n'est pas elle-même significative sur 14 ans, et la méthode a aussi ses défauts : elle concentre le risque actif sur la value et n'expose pas à la rentabilité.
+- **Le score ERC ne fait pas mieux que le score équipondéré ici.** Les deux scores sont trop proches (corrélation 0,92) pour se départager en 14 ans, et aucun facteur n'a rapporté. Attention : appliquer des poids ERC dans un score ne donne pas un risque actif réparti à parts égales (9.7) ; une vraie allocation à risques égaux entre facteurs n'est pas testée ici.
 - **Limites** : un backtest court (14,5 ans, il faudrait un IR de 0,53 pour conclure), le biais du survivant, des frais simplifiés (taux fixe, sans impact de marché selon la taille de l'ordre).
 
 ## Étape 10 : améliorer la méthode d'allocation
@@ -1072,7 +1127,7 @@ $$\sigma_{t+1}^2 = \omega + \alpha\, \varepsilon_t^2 + \beta\, \sigma_t^2$$
 #### Le choix du modèle
 
 - **Candidats** : ARCH(1), GARCH(1,1), (2,1), (1,2), GJR-GARCH (effet asymétrique des baisses) et EGARCH, avec des chocs de loi normale ou de Student.
-- **Critère** : BIC, sur 1963-1989 seulement, avant toute période d'évaluation.
+- **Critère** : BIC, sur 1963-1989 seulement, avant la période d'évaluation de cette partie (1990-2026). Les validations sur 1975-2026 des étapes 11.5 et 12.2 chevauchent cette période de choix.
 - **Retenu : GARCH(1,1) de Student.** L'EGARCH a un BIC un peu plus faible en moyenne (environ 2 points par facteur, grâce à HML et Mom ; il est moins bon pour les trois autres), mais il est instable quand on le ré-estime : il prévoit une fois 137 % de volatilité annuelle pour HML. Le GARCH(1,1) n'a pas ce problème.
 - **Paramètres** (1963-1989) : persistance $\alpha + \beta$ de 0,79 (Mom) à 0,98 (SMB). Un choc de volatilité est à moitié résorbé en 3 mois pour Mom, et en 5 à 28 mois pour les autres facteurs. Le momentum a les chocs les plus forts et les plus brefs ($\alpha = 0{,}55$).
 - **Contrôle** : une fois le GARCH appliqué, les résidus standardisés au carré ne sont plus autocorrélés (p-valeurs de Ljung-Box de 0,48 à 0,93).
@@ -1146,7 +1201,7 @@ Code : [`notebooks/etape11_controle_risque_actif_cp.ipynb`](notebooks/etape11_co
 
 ### 11.1 Pourquoi
 
-- **Le rendement actif** est l'écart entre notre portefeuille et l'indice, mois par mois. Son écart-type annualisé est l'**écart de suivi** : 5,9 % pour la 10.2.
+- **Le rendement actif** est l'écart entre notre portefeuille et l'indice, mois par mois. Son écart-type annualisé est l'**écart de suivi** : 5,9 % pour la 10.2 sur 2012-2026 avant frais (6,1 % sur mars 2014 - août 2026, net de frais, période des tableaux ci-dessous).
 - **Un gérant multi-facteurs a un budget d'écart à l'indice.** Le client accepte que le fonds s'écarte de l'indice, mais dans une limite, par exemple « pas plus de 2,5 % de sous-performance sur un mois, sauf rarement ».
 - **Aujourd'hui, rien ne contrôle ce risque.** Le portefeuille de la 10.2 a perdu jusqu'à 5,7 % face à l'indice en un mois, et 11 des 150 mois de mars 2014 à août 2026 ont dépassé −2,5 %.
 - **Pour contrôler ce risque, il faut le prévoir, puis savoir à quel point la prévision est fiable.** C'est là qu'intervient la Conformal Prediction (CP) :
@@ -1189,7 +1244,7 @@ Pour passer d'un niveau de risque à un intervalle à 90 %, il faut un multiplic
 
 **Les quatre étapes, chaque fin de mois $t$ :**
 1. **Score de non-conformité** de chaque mois passé : $s_\tau = |a_\tau| / \hat\sigma_{a,\tau}$. Il dit de combien le vrai rendement actif a dépassé le risque prévu ($s = 2$ : un écart de deux fois le risque prévu).
-2. **Calibration** : $q_t$ = quantile à 90 % des scores des 60 derniers mois (au moins 24). La CP prend le rang $\lceil (n+1) \times 0{,}9 \rceil$ parmi $n$ scores : c'est ce qui garantit la couverture en échantillon fini.
+2. **Calibration** : $q_t$ = quantile à 90 % des scores des 60 derniers mois (au moins 24). La CP prend le $\lceil (n+1) \times 0{,}9 \rceil$-ième plus petit score parmi $n$. Avec des données échangeables, ce rang garantit la couverture même sur un petit échantillon ; ici, en série temporelle, la garantie n'est qu'approchée, d'où l'ACI.
 3. **ACI, la version adaptative** (Gibbs et Candès, 2021) : comme le marché change, on ajuste le niveau visé après chaque mois : $\alpha_{t+1} = \alpha_t + \gamma\,(\alpha - \text{err}_t)$.
    - $\text{err}_t = 1$ si le rendement actif est sorti de l'intervalle, sinon 0.
    - Une sortie élargit les intervalles suivants ; une série de mois dedans les resserre doucement.
@@ -1198,16 +1253,17 @@ Pour passer d'un niveau de risque à un intervalle à 90 %, il faut un multiplic
 
 **Résultats** (mars 2014 à août 2026, 150 mois ; les intervalles commencent après 24 mois de scores) :
 
-| | Couverture | p Kupiec | Sorties par le bas | q moyen |
-|---|---:|---:|---:|---:|
-| Quantile normal (1,645) | 90,7 % | 0,78 | 5,3 % | 1,64 |
-| CP simple | 88,0 % | 0,43 | 6,7 % | 1,50 |
-| CP adaptative (ACI) | 89,3 % | 0,79 | 6,0 % | 1,58 |
+| | Couverture | p Kupiec | p Christoffersen | Sorties par le bas | q moyen |
+|---|---:|---:|---:|---:|---:|
+| Quantile normal (1,645) | 90,7 % | 0,78 | 0,09 | 5,3 % | 1,64 |
+| CP simple | 86,0 % | 0,12 | 0,01 | 8,0 % | 1,34 |
+| CP adaptative (ACI) | 88,0 % | 0,43 | 0,03 | 6,7 % | 1,50 |
 
 ![Intervalles](docs/figures/cp_intervalles_actions.png)
 
-- **Les trois méthodes couvrent à peu près 90 %** : le test de Kupiec ne rejette aucune d'elles.
-- **Ici, le quantile normal tombe juste par chance** : le modèle surestime le risque (6,4 % contre 5,9 %), ce qui compense les queues épaisses. La CP corrige d'elle-même cette surestimation, avec un $q$ plus petit (1,50 à 1,58).
+- **Les trois méthodes couvrent à peu près 90 %** : le test de Kupiec ne rejette aucune d'elles. La CP est même un peu sous les 90 % (86 à 88 %).
+- **Ici, le quantile normal tombe juste par chance** : le modèle surestime le risque (6,4 % contre 5,9 %), ce qui compense les queues épaisses. La CP corrige d'elle-même cette surestimation, avec un $q$ plus petit (1,34 à 1,50), et va un peu trop loin.
+- **Les sorties de la CP arrivent groupées** : le test d'indépendance de Christoffersen les rejette (p = 0,01 et 0,03). L'ACI couvre 90,7 % des mois où le risque prévu est élevé, mais 85,3 % des mois calmes.
 - **150 mois, c'est trop peu pour départager les méthodes** : un écart de couverture de 2 points n'est pas détectable. D'où la validation sur 50 ans de la partie 11.5.
 
 ### 11.4 La règle d'allocation : réduire les paris quand la perte possible dépasse le budget
@@ -1228,14 +1284,15 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 |---|---:|---:|---:|---:|---:|---:|---:|
 | Sans contrôle (étape 10.2) | 14,0 % | 0,80 | 6,1 % | 11 | −5,7 % | −19,7 % | 100 % |
 | Contrôle, quantile normal | 14,3 % | 0,83 | 4,4 % | 6 | −4,3 % | −14,1 % | 84 % |
-| **Contrôle, CP adaptative** | **14,3 %** | **0,83** | **4,0 %** | **4** | **−3,6 %** | **−12,2 %** | **80 %** |
+| **Contrôle, CP adaptative** | **14,4 %** | **0,84** | **4,2 %** | **4** | **−3,6 %** | **−12,3 %** | **82 %** |
 
 ![Contrôle du risque actif](docs/figures/cp_controle_actions.png)
 
-- **Le contrôle fonctionne** : les mois sous −2,5 % passent de 11 à 4, le pire mois relatif de −5,7 % à −3,6 %, et l'écart de suivi de 6,1 % à 4,0 %.
-- **Il ne coûte pas de rendement** : +0,2 % par an face au portefeuille sans contrôle ($t = 0{,}3$). Le contrôle réduit les paris surtout en 2021-2026, quand le risque actif est élevé. Or c'est la période où les paris ont perdu.
-- **La CP fait un peu mieux que le quantile normal** : moins de mois hors budget (4 contre 6), un pire mois moins grave. Elle réduit les paris moins souvent (71 mois contre 83), mais plus fort quand le risque est élevé.
-- **Robustesse** : avec un budget de 1,5 %, 2 %, 2,5 % ou 3 %, la CP donne toujours au moins aussi peu de mois hors budget que le quantile normal, pour un rendement actif proche.
+- **Le contrôle fonctionne** : les mois sous −2,5 % passent de 11 à 4, le pire mois relatif de −5,7 % à −3,6 %, et l'écart de suivi de 6,1 % à 4,2 %.
+- **Il ne coûte pas de rendement** : +0,3 % par an face au portefeuille sans contrôle ($t = 0{,}4$, non significatif). Le contrôle réduit les paris surtout en 2021-2026, quand le risque actif est élevé. Or c'est la période où les paris ont perdu.
+- **La CP fait un peu mieux que le quantile normal** : moins de mois hors budget (4 contre 6), un pire mois moins grave, pour une part de paris conservée proche (82 % contre 84 %). Elle réduit les paris moins souvent (69 mois contre 83), mais plus fort quand le risque est élevé.
+- **Quand le contrôle est actif** ($k < 1$), la perte relative dépasse le budget 3 fois sur 69 avec la CP (4,3 %) et 5 fois sur 83 avec le quantile normal (6,0 %), pour environ 5 % visés.
+- **Robustesse** : avec un budget de 2 %, 2,5 % ou 3 %, la CP donne moins de mois hors budget que le quantile normal ; à 1,5 %, les deux se valent (9 contre 8).
 - **Limite** : sur 150 mois, l'écart entre CP et quantile normal n'est pas significatif.
 
 ### 11.5 La même méthode sur 50 ans, avec les facteurs de Fama et French
@@ -1250,17 +1307,17 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 
 **Couverture des intervalles à 90 %** (1975-2026) :
 
-| | Couverture | p Kupiec | Sorties par le bas | q moyen |
-|---|---:|---:|---:|---:|
-| Quantile normal (1,645) | 84,7 % | 0,00 | 4,8 % | 1,64 |
-| CP simple | 91,5 % | 0,22 | 3,4 % | 2,29 |
-| CP adaptative (ACI) | 90,6 % | 0,59 | 3,5 % | 2,19 |
+| | Couverture | p Kupiec | p Christoffersen | Sorties par le bas | q moyen |
+|---|---:|---:|---:|---:|---:|
+| Quantile normal (1,645) | 84,7 % | 0,00 | 0,18 | 4,8 % | 1,64 |
+| CP simple | 89,7 % | 0,79 | 0,01 | 4,0 % | 2,07 |
+| CP adaptative (ACI) | 90,0 % | 1,00 | 0,01 | 3,7 % | 2,10 |
 
 ![Couverture sur 50 ans](docs/figures/cp_couverture_french.png)
 
 - **Ici, le quantile normal échoue nettement** : 84,7 % de couverture au lieu de 90 %, rejeté par le test de Kupiec. Le modèle sous-estime le risque (3,1 % prévu contre 4,2 % réalisé), et les queues sont épaisses.
-- **La CP rétablit la couverture** : 90,6 % avec l'ACI. Elle a appris seule qu'il fallait un $q$ d'environ 2,2 au lieu de 1,645.
-- **Décennie par décennie**, l'ACI reste entre 87 % et 97 %, alors que le quantile normal tombe à 79-81 % dans les années 1980 et 2020.
+- **La CP rétablit la couverture** : 90,0 % avec l'ACI. Elle a appris seule qu'il fallait un $q$ d'environ 2,1 au lieu de 1,645.
+- **Décennie par décennie**, l'ACI reste entre 87 % et 95 %, alors que le quantile normal tombe à 79-81 % dans les années 1980 et 2020.
 - **Limite** : les sorties arrivent groupées (test d'indépendance de Christoffersen rejeté). La CP garantit une couverture moyenne, pas mois par mois. Après un choc (2000-2002), elle met quelques mois à s'élargir.
 
 **Contrôle du risque** (1975-2026, sans frais) :
@@ -1269,22 +1326,23 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 |---|---:|---:|---:|---:|---:|
 | Sans contrôle | +3,4 % | 4,2 % | 0,82 | 10 | −8,4 % |
 | Contrôle, quantile normal | +3,3 % | 3,9 % | 0,84 | 7 | −6,9 % |
-| **Contrôle, CP adaptative** | **+3,0 %** | **3,3 %** | **0,89** | **3** | **−4,4 %** |
+| **Contrôle, CP adaptative** | **+2,95 %** | **3,3 %** | **0,88** | **4** | **−4,4 %** |
 
-- **Même conclusion qu'avec les actions, sur un historique quatre fois plus long** : la CP divise par trois les mois hors budget et réduit le pire mois de moitié. Le ratio d'information monte légèrement (0,82 → 0,89) : on perd un peu de rendement actif, mais encore plus de risque.
-- **Le contrôle mensuel n'empêche pas les pertes lentes** : la pire perte sur 12 mois reste −10,7 % dans les trois cas. Elle vient d'une suite de mois modérément mauvais, dont aucun ne dépasse la borne.
+- **Même conclusion qu'avec les actions, sur un historique quatre fois plus long** : la CP divise par plus de deux les mois hors budget (10 → 4) et réduit le pire mois de moitié. Le ratio d'information monte légèrement (0,82 → 0,88) : on perd un peu de rendement actif, mais encore plus de risque.
+- **Une partie de ce gain vient du risque pris, pas seulement de la calibration** : la CP garde 94 % des paris en moyenne, contre 99 % pour le quantile normal. Quand le contrôle est actif, la perte dépasse le budget 3 fois sur 140 avec la CP, 2 fois sur 38 avec le quantile normal.
+- **Le contrôle mensuel n'empêche pas les pertes lentes** : la pire perte relative sur 12 mois reste −11,3 % dans les trois cas. Elle vient d'une suite de mois modérément mauvais, dont aucun ne dépasse la borne.
 
 ### 11.6 À retenir de l'étape 11
 
-- **La CP est utile ici, pour le risque et non pour le rendement.** Elle transforme une prévision de risque imparfaite en un budget de perte qui tient en moyenne : 90,6 % de couverture sur 50 ans, contre 84,7 % pour la méthode classique.
-- **Appliqué au portefeuille d'actions, le contrôle par CP** ramène l'écart de suivi de 6,1 % à 4,0 % et les mois hors budget de 11 à 4, sans coût de rendement mesurable.
+- **La CP est utile ici, pour le risque et non pour le rendement.** Elle transforme une prévision de risque imparfaite en un budget de perte qui tient en moyenne : 90,0 % de couverture sur 50 ans, contre 84,7 % pour la méthode classique. Sur nos actions, où le modèle surestime le risque, le quantile normal tombe juste et la CP est un peu sous 90 % (88 %) : sur 150 mois, on ne peut pas les départager.
+- **Appliqué au portefeuille d'actions, le contrôle par CP** ramène l'écart de suivi de 6,1 % à 4,2 % et les mois hors budget de 11 à 4, sans coût de rendement mesurable.
 - **Ses limites** : la garantie porte sur la moyenne, les sorties arrivent groupées après un choc, et un contrôle mois par mois ne protège pas d'une perte lente sur un an.
 
 ## Étape 12 : comparaison finale des méthodes d'allocation
 
 - On met côte à côte les quatre façons de pondérer les facteurs construites dans le projet :
   - **Équipondéré** : 20 % par facteur (étape 9) ;
-  - **ERC** : contributions au risque égales, volatilités et corrélations sur 60 mois (étape 9) ;
+  - **ERC** : poids qui égalisent les contributions au risque des facteurs, volatilités et corrélations sur 60 mois (étape 9). Sur nos actions, ces poids combinent les z-scores et le risque actif final n'est pas réparti à parts égales (9.7) ; sur les séries de French, c'est une vraie allocation à risques égaux ;
   - **ERC GARCH** : même chose, avec la volatilité du mois suivant prévue par GARCH (étape 10.2) ;
   - **ERC GARCH + CP** : ERC GARCH, avec les paris réduits quand la borne de perte conforme dépasse 2,5 % par mois (étape 11).
 - Deux terrains : **nos actions du S&P 500** (2012-2026, nettes de frais), puis **les facteurs de Fama et French** (1975-2026), d'abord sans frais, puis avec des frais estimés sur nos actions (12.3).
@@ -1302,7 +1360,7 @@ $$k_t = \min\left(1, \; \frac{L}{q_t\,\hat\sigma_{a,t+1}}\right), \qquad w = w^{
 | Équipondéré | 15,6 % | 15,8 % | 0,90 | −28,2 % | +0,77 % | 7,2 % | 0,11 | 0,38 | −6,6 % | 12 | 315 % |
 | ERC | 14,7 % | 15,4 % | 0,87 | −23,2 % | −0,12 % | 6,4 % | −0,02 | −0,07 | −5,9 % | 13 | 278 % |
 | ERC GARCH | 15,5 % | 15,1 % | 0,92 | −22,5 % | +0,53 % | 5,9 % | 0,09 | 0,30 | −5,7 % | 11 | 333 % |
-| **ERC GARCH + CP** | **15,7 %** | **14,9 %** | **0,95** | **−22,5 %** | **+0,70 %** | **4,0 %** | **0,17** | **0,56** | **−3,6 %** | **4** | 296 % |
+| **ERC GARCH + CP** | **15,8 %** | **14,9 %** | **0,96** | **−22,5 %** | **+0,79 %** | **4,1 %** | **0,19** | **0,61** | **−3,6 %** | **4** | 300 % |
 | Univers (capitalisation) | 15,1 % | 14,0 % | 0,96 | −23,6 % | | | | | | | |
 | SPY | 14,6 % | 14,0 % | 0,93 | −23,9 % | −0,41 % | 0,8 % | | −2,64 | | | |
 
@@ -1313,10 +1371,10 @@ Rendement actif annuel contre l'univers, par sous-période :
 | Équipondéré | +2,8 % | −2,2 % | +1,9 % |
 | ERC | +2,5 % | −0,5 % | −2,4 % |
 | ERC GARCH | +2,9 % | +0,6 % | −1,9 % |
-| ERC GARCH + CP | +2,9 % | +1,2 % | −2,0 % |
+| ERC GARCH + CP | +2,9 % | +1,2 % | −1,8 % |
 
 **Lecture du graphique :**
-- **Haut** : les quatre méthodes et l'univers finissent proches les uns des autres (entre 7,3 et 8,3 $ pour 1 $ investi). Les écarts sont faibles à l'œil sur 14 ans.
+- **Haut** : les quatre méthodes et l'univers finissent proches les uns des autres (entre 7,3 et 8,4 $ pour 1 $ investi). Les écarts sont faibles à l'œil sur 14 ans.
 - **Milieu (rendement actif cumulé)** : c'est là que les méthodes se séparent.
   - 2012-2016 : toutes gagnent sur l'univers (+10 à +15 %).
   - 2020 : l'équipondéré décroche (−5 % cumulé). Il porte plus de value et de taille, les deux facteurs qui ont le plus souffert du Covid. Les versions ERC, qui réduisent ces facteurs plus volatils, tiennent mieux.
@@ -1327,8 +1385,8 @@ Rendement actif annuel contre l'univers, par sous-période :
 
 **Interprétation :**
 - **Aucune méthode ne bat l'univers de façon significative** : t entre −0,1 et 0,6, loin de 2. Le classement entre méthodes ne veut pas dire grand-chose sur 174 mois.
-- **ERC GARCH + CP a le meilleur profil parmi les stratégies** : meilleur Sharpe (0,95), plus faible écart de suivi (4,0 %), pire mois relatif −3,6 % au lieu de −5,7 à −6,6 %, 4 mois hors budget au lieu de 11 à 13. Son Sharpe reste à peine inférieur à celui de l'univers (0,95 contre 0,96).
-- **L'apport net de chaque brique est donc surtout du côté du risque** : GARCH réduit la volatilité et la perte max, la CP réduit fortement l'écart de suivi. Aucune ne crée de rendement.
+- **ERC GARCH + CP a le profil le plus régulier parmi les stratégies** : plus faible écart de suivi (4,1 %), pire mois relatif −3,6 % au lieu de −5,7 à −6,6 %, 4 mois hors budget au lieu de 11 à 13. Son Sharpe (0,96) égale celui de l'univers et dépasse un peu ceux des autres méthodes (0,87 à 0,92), sans que ces écarts soient testés ni probablement significatifs.
+- **L'apport de chaque brique est donc surtout du côté du risque**, et seul celui de la CP est net : elle réduit fortement l'écart de suivi. Les baisses de volatilité et de perte maximale de l'ERC GARCH (15,4 → 15,1 % ; −23,2 → −22,5 %) sont trop petites pour conclure. Aucune brique ne crée de rendement.
 - **Pourquoi pas de surperformance** : sur 2012-2026, les primes des facteurs sont proches de zéro (étape 9) et la période est dominée par les grandes valeurs de croissance, à l'opposé de nos paris.
 
 ### 12.2 Sur les facteurs de Fama et French (janvier 1975 à août 2026)
@@ -1357,7 +1415,7 @@ Poids moyens des facteurs :
 | Équipondéré | 17,0 % | 15,0 % | 0,85 | −46,0 % | +3,60 % | 4,8 % | 0,75 | 4,59 | −7,1 % | 21 |
 | ERC | 16,6 % | 15,0 % | 0,83 | −46,6 % | +3,31 % | 4,2 % | 0,79 | 4,86 | −7,3 % | 11 |
 | ERC GARCH | 16,8 % | 15,0 % | 0,84 | −44,5 % | +3,43 % | 4,2 % | 0,82 | 5,15 | −8,4 % | 10 |
-| **ERC GARCH + CP** | 16,2 % | 15,1 % | 0,80 | −44,5 % | +2,95 % | **3,3 %** | **0,89** | **5,53** | **−4,4 %** | **3** |
+| **ERC GARCH + CP** | 16,2 % | 15,1 % | 0,80 | −44,5 % | +2,95 % | **3,3 %** | **0,88** | **5,54** | **−4,4 %** | **4** |
 | Marché | 12,8 % | 15,5 % | 0,59 | −50,3 % | | | | | | |
 
 Rendement actif annuel contre le marché, par sous-période (ratio d'information entre parenthèses) :
@@ -1367,7 +1425,7 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 | Équipondéré | +5,6 % (1,60) | +4,4 % (0,78) | +0,4 % (0,10) |
 | ERC | +4,3 % (1,62) | +4,6 % (0,91) | +0,4 % (0,11) |
 | ERC GARCH | +4,2 % (1,62) | +4,8 % (0,94) | +0,6 % (0,14) |
-| ERC GARCH + CP | +4,2 % (1,64) | +3,6 % (1,00) | +0,7 % (0,20) |
+| ERC GARCH + CP | +4,2 % (1,63) | +3,6 % (1,01) | +0,7 % (0,19) |
 
 **Lecture du graphique :**
 - **Haut** : 1 $ placé en 1975 devient environ 500 $ dans le marché et 2 400 à 3 400 $ avec les facteurs. L'écart se creuse surtout avant 2008.
@@ -1384,9 +1442,19 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 - **Entre méthodes, l'ordre suit le risque pris** :
   - l'équipondéré a le plus de rendement actif (+3,6 %) mais aussi le plus d'écart de suivi (4,8 %) et 21 mois hors budget ;
   - l'ERC et l'ERC GARCH réduisent l'écart de suivi (4,2 %) et améliorent le ratio d'information (0,75 → 0,79 → 0,82) ; GARCH apporte un petit gain régulier, comme en 10.2 ;
-  - **la CP donne le meilleur ratio d'information (0,89) et le t le plus élevé (5,5)** : moins de rendement actif (+3,0 %), mais beaucoup moins de risque actif (3,3 %, 3 mois hors budget, pire mois −4,4 %).
+  - **la CP donne le meilleur ratio d'information (0,88)** : moins de rendement actif (+2,95 %), mais beaucoup moins de risque actif (3,3 %, 4 mois hors budget, pire mois −4,4 %). Son t plus élevé (5,5) n'est pas un mérite à part : c'est le ratio d'information multiplié par la racine de la durée.
+- **Ces écarts de ratio d'information ne sont pas significatifs**, même sur 50 ans. Bootstrap par blocs (2 000 tirages) sur les rendements actifs :
+
+| Comparaison | Écart de ratio d'information | Intervalle à 95 % |
+|---|---:|---|
+| ERC − Équipondéré | +0,04 | −0,07 à +0,15 |
+| ERC GARCH − ERC | +0,03 | −0,02 à +0,10 |
+| ERC GARCH + CP − ERC GARCH | +0,07 | −0,02 à +0,15 |
+| ERC GARCH + CP − Équipondéré | +0,13 | −0,01 à +0,28 |
+
+  La tendance est cohérente (chaque brique fait un peu mieux que la précédente), mais tous les intervalles contiennent zéro.
 - **Le Sharpe total ne suit pas** (0,80 pour la CP contre 0,83-0,85) : le risque du portefeuille vient presque entièrement du marché, donc réduire le risque actif ne baisse pas la volatilité totale, alors que le rendement actif baisse.
-- **Le rapprochement avec nos actions** : sur 2012-2026, même avec les facteurs de French, le rendement actif tombe à +0,4 à +0,7 % par an (t < 0,8). L'absence de surperformance de la partie 12.1 vient donc de la **période**, pas de notre univers ni de nos méthodes.
+- **Le rapprochement avec nos actions** : sur 2012-2026, même avec les facteurs de French, le rendement actif tombe à +0,4 à +0,7 % par an (t < 0,7). L'absence de surperformance de la partie 12.1 vient donc de la **période**, pas de notre univers ni de nos méthodes.
 
 ### 12.3 Les facteurs de French avec des frais estimés sur nos actions
 
@@ -1396,15 +1464,15 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 **L'estimation des frais :**
 - Dans nos backtests d'actions (12.1), chaque méthode paie 0,10 % par dollar échangé, et l'univers aussi.
 - **Coût de l'allocation par facteurs** d'une méthode, chaque mois = ses frais − les frais de l'univers. C'est ce que coûtent les paris sur les facteurs, en plus de ce que coûte déjà l'indice.
-- On prend la moyenne mensuelle sur 2012-2026 (à partir de mars 2014 pour la CP, quand le contrôle commence), et on la retire chaque mois du rendement des portefeuilles de facteurs, de 1975 à 2026.
+- On prend la moyenne mensuelle sur mars 2014 - août 2026, la période où les quatre méthodes existent (le contrôle par CP commence en mars 2014), et on la retire chaque mois du rendement des portefeuilles de facteurs, de 1975 à 2026.
 - L'ordre de grandeur est comparable : les paris de nos portefeuilles d'actions ont un écart de suivi de 4 à 7 %, ceux des portefeuilles de French de 3 à 5 %.
 
 | | Frais mensuels | Frais annuels | Rendement actif sans frais (French) | Multiple des frais qui annule le gain |
 |---|---:|---:|---:|---:|
-| Équipondéré | 2,5 pb | 0,30 % | +3,60 % | 11,8 |
-| ERC | 2,2 pb | 0,27 % | +3,31 % | 12,4 |
-| ERC GARCH | 2,7 pb | 0,32 % | +3,43 % | 10,7 |
-| ERC GARCH + CP | 2,5 pb | 0,30 % | +2,95 % | 9,9 |
+| Équipondéré | 2,6 pb | 0,31 % | +3,60 % | 11,5 |
+| ERC | 2,4 pb | 0,29 % | +3,31 % | 11,4 |
+| ERC GARCH | 2,8 pb | 0,34 % | +3,43 % | 10,1 |
+| ERC GARCH + CP | 2,5 pb | 0,30 % | +2,95 % | 9,8 |
 
 ![Facteurs de French nets des frais estimés](docs/figures/final_french_frais.png)
 
@@ -1412,52 +1480,57 @@ Rendement actif annuel contre le marché, par sous-période (ratio d'information
 
 | | Rendement annuel | Volatilité | Sharpe | Perte max | Rendement actif | Écart de suivi | Ratio d'information | t (Newey-West) | Pire mois relatif | Mois sous −2,5 % |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| Équipondéré | 16,6 % | 15,0 % | 0,83 | −46,3 % | +3,30 % | 4,8 % | 0,69 | 4,20 | −7,2 % | 21 |
-| ERC | 16,3 % | 15,0 % | 0,81 | −46,8 % | +3,04 % | 4,2 % | 0,72 | 4,47 | −7,3 % | 11 |
-| ERC GARCH | 16,4 % | 15,0 % | 0,82 | −44,9 % | +3,11 % | 4,2 % | 0,74 | 4,67 | −8,4 % | 10 |
-| **ERC GARCH + CP** | 15,9 % | 15,1 % | 0,78 | −44,8 % | +2,65 % | **3,3 %** | **0,80** | **4,98** | **−4,4 %** | **3** |
+| Équipondéré | 16,6 % | 15,0 % | 0,83 | −46,3 % | +3,29 % | 4,8 % | 0,68 | 4,19 | −7,2 % | 21 |
+| ERC | 16,3 % | 15,0 % | 0,81 | −46,8 % | +3,02 % | 4,2 % | 0,72 | 4,44 | −7,3 % | 11 |
+| ERC GARCH | 16,4 % | 15,0 % | 0,82 | −44,9 % | +3,09 % | 4,2 % | 0,74 | 4,65 | −8,4 % | 10 |
+| **ERC GARCH + CP** | 15,9 % | 15,1 % | 0,78 | −44,8 % | +2,65 % | **3,3 %** | **0,79** | **4,97** | **−4,4 %** | **4** |
 | Marché | 12,8 % | 15,5 % | 0,59 | −50,3 % | | | | | | |
 
 Sensibilité au niveau des frais (rendement actif annuel, t entre parenthèses) :
 
 | | Sans frais | Frais × 1 | Frais × 2 | Frais × 3 |
 |---|---:|---:|---:|---:|
-| Équipondéré | +3,60 % (4,6) | +3,30 % (4,2) | +2,99 % (3,8) | +2,69 % (3,4) |
-| ERC | +3,31 % (4,9) | +3,04 % (4,5) | +2,78 % (4,1) | +2,51 % (3,7) |
-| ERC GARCH | +3,43 % (5,2) | +3,11 % (4,7) | +2,79 % (4,2) | +2,47 % (3,7) |
-| ERC GARCH + CP | +2,95 % (5,5) | +2,65 % (5,0) | +2,36 % (4,4) | +2,06 % (3,9) |
+| Équipondéré | +3,60 % (4,6) | +3,29 % (4,2) | +2,97 % (3,8) | +2,66 % (3,4) |
+| ERC | +3,31 % (4,9) | +3,02 % (4,4) | +2,73 % (4,0) | +2,44 % (3,6) |
+| ERC GARCH | +3,43 % (5,2) | +3,09 % (4,7) | +2,76 % (4,1) | +2,42 % (3,6) |
+| ERC GARCH + CP | +2,95 % (5,5) | +2,65 % (5,0) | +2,35 % (4,4) | +2,05 % (3,8) |
 
 Rendement actif annuel net, par sous-période (t entre parenthèses) :
 
 | | 1975-1989 | 1990-2011 | 2012-2026 |
 |---|---:|---:|---:|
 | Équipondéré | +5,3 % (6,7) | +4,1 % (2,8) | +0,1 % (0,1) |
-| ERC | +4,0 % (6,4) | +4,3 % (3,4) | +0,2 % (0,2) |
+| ERC | +4,0 % (6,3) | +4,3 % (3,3) | +0,2 % (0,2) |
 | ERC GARCH | +3,9 % (6,2) | +4,5 % (3,6) | +0,2 % (0,2) |
-| ERC GARCH + CP | +3,9 % (6,2) | +3,3 % (3,7) | +0,4 % (0,4) |
+| ERC GARCH + CP | +3,9 % (6,3) | +3,3 % (3,7) | +0,4 % (0,4) |
 
 **Lecture du graphique :**
-- **Haut** : les frais de l'allocation par facteurs, mesurés sur nos actions, restent entre 1 et 4 points de base par mois.
-  - L'ERC est le moins cher (2,2 pb) : ses poids changent lentement.
-  - L'ERC GARCH est le plus cher (2,7 pb), surtout en 2022-2024 : les volatilités prévues bougent davantage, donc les poids aussi.
+- **Haut** : les frais de l'allocation par facteurs, mesurés sur nos actions, restent entre 1,5 et 4 points de base par mois.
+  - L'ERC est le moins cher (2,4 pb) : ses poids changent lentement.
+  - L'ERC GARCH est le plus cher (2,8 pb), surtout en 2022-2024 : les volatilités prévues bougent davantage, donc les poids aussi.
   - La CP coûte moins que l'ERC GARCH (2,5 pb) : quand elle réduit les paris, il y a moins d'actions à échanger.
 - **Milieu** : 1 $ devient environ 2 000 à 2 800 $ nets de frais, contre 500 $ pour le marché. L'écart avec le graphique sans frais est à peine visible.
 - **Bas** : les traits pleins (nets) restent proches des pointillés (sans frais). L'écart se creuse lentement, d'environ 15 points de rendement actif cumulé sur 50 ans.
 
 **Interprétation :**
-- **Les frais estimés ne changent pas la conclusion** : environ 0,3 % par an, contre un gain de 3 à 3,6 % par an. Le rendement actif net reste de +2,7 à +3,3 % par an, avec un t entre 4,2 et 5,0.
-- **Il faudrait des frais 10 à 12 fois plus élevés pour annuler le gain**. Même à 3 fois, toutes les méthodes restent significatives (t ≥ 3,4).
-- **Le classement entre méthodes est inchangé** : les frais sont proches d'une méthode à l'autre. La CP garde le meilleur ratio d'information (0,80) et le plus faible risque actif ; l'équipondéré garde le plus fort rendement actif.
+- **Les frais estimés ne changent pas la conclusion** : environ 0,3 % par an, contre un gain de 3 à 3,6 % par an. Le rendement actif net reste de +2,65 à +3,3 % par an, avec un t entre 4,2 et 5,0.
+- **Il faudrait des frais 10 à 11,5 fois plus élevés pour annuler le gain**. À 3 fois, toutes les méthodes restent significatives (t ≥ 3,4).
+- **Le classement entre méthodes est inchangé** : les frais sont proches d'une méthode à l'autre. La CP garde le meilleur ratio d'information (0,79) et le plus faible risque actif ; l'équipondéré garde le plus fort rendement actif.
 - **Sur 2012-2026, le rendement actif net est nul** (+0,1 à +0,4 % par an, t < 0,5), comme sur nos actions.
-- **Limite de l'estimation** : nos frais viennent d'un portefeuille long-only de grandes capitalisations, très liquides. Les facteurs de French achètent et vendent à découvert, y compris des petites capitalisations, plus chères à traiter, et le momentum tourne beaucoup. Leurs vrais frais sont probablement plus élevés, d'où le tableau de sensibilité. La marge reste large : il faudrait environ 10 fois nos frais pour effacer le gain.
+- **Limites de l'estimation**, qui vont toutes dans le sens de frais sous-estimés :
+  - nos frais viennent d'un portefeuille long-only de grandes capitalisations, très liquides. Les facteurs de French achètent et vendent à découvert, y compris des petites capitalisations, et le momentum tourne beaucoup : leurs vrais frais sont plus élevés, peut-être de plusieurs fois ;
+  - le coût est supposé constant de 1975 à 2026, alors que les frais de transaction étaient bien plus élevés dans les années 1970 et 1980 ;
+  - le coût de la CP est mesuré sur nos actions, où elle garde 82 % des paris ; sur French, elle en garde 94 %, donc elle y coûte un peu plus.
+- **Ce qu'on peut en conclure** : le multiple qui annule le gain (environ 10) reste au-dessus de l'écart plausible entre nos frais et ceux des facteurs de French, mais pas de beaucoup. Le gain de 50 ans est probable après frais réels, sans être acquis ; celui de 2012-2026, lui, est nul dans tous les cas.
 
 ### 12.4 À retenir de l'étape 12
 
-- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché, et les méthodes fondées sur le risque (ERC, GARCH, CP) améliorent le ratio d'information sur l'ensemble de 1975-2026 (0,75 → 0,79 → 0,82 → 0,89 sans frais), même si l'écart entre ERC et ERC GARCH est nul sur 1975-1989. **Cela tient après frais** : avec les frais mesurés sur nos actions, le gain reste de +2,7 à +3,3 % par an sur 50 ans, et il faudrait des frais environ 10 fois plus élevés pour l'effacer.
+- **Quand les primes existent (1975-2011)**, l'allocation par facteurs bat nettement le marché. Sur 1975-2026, le ratio d'information progresse à chaque brique (0,75 → 0,79 → 0,82 → 0,88 sans frais), mais aucun de ces écarts n'est significatif, et ERC et ERC GARCH font jeu égal sur 1975-1989. **Le gain sur le marché tient après les frais estimés** (+2,65 à +3,3 % par an), avec la réserve que ces frais sont probablement sous-estimés.
 - **Quand elles n'existent pas (2012-2026)**, aucune méthode ne crée de rendement, sur nos actions comme sur les séries de French, avec ou sans frais. Les méthodes servent alors à **contrôler le risque** : ERC GARCH + CP est la version la plus régulière, avec le plus faible écart de suivi et le moins de mauvais mois.
-- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est de 0,6 point par an sur French et de 0,9 point sur nos actions. L'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,0 à 7,2 % (actions). Les frais varient peu : 2,2 à 2,7 points de base par mois.
+- **Le choix de la méthode change le risque bien plus que le rendement** : entre la meilleure et la moins bonne, l'écart de rendement actif est de 0,65 point par an sur French et de 0,9 point sur nos actions, non significatif. L'écart de suivi varie de 3,3 à 4,8 % (French) et de 4,1 à 7,2 % (actions). Les frais varient peu : 2,4 à 2,8 points de base par mois.
 - **Limites** :
   - 14,5 ans de données sur nos actions : aucune différence n'y est significative ;
+  - sur nos actions, l'« ERC » pondère des z-scores et ne répartit pas vraiment le risque actif à parts égales (9.7) ;
   - les frais des séries de French sont estimés à partir de nos grandes capitalisations, donc probablement sous-estimés ;
   - même biais du survivant qu'à l'étape 8 pour l'univers d'actions.
 
